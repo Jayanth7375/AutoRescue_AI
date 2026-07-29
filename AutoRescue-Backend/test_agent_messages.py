@@ -162,10 +162,19 @@ async def test_maintenance():
             recommendation="Check tyre pressure",
         )
 
+        # Create corresponding safety object for WARNING scenario
+        safety = SafetyMessage(
+            safe_to_drive=True,
+            navigation_allowed=True,
+            tow_required=False,
+            risk_level="MEDIUM",
+        )
+
         req = MaintenanceRequest(
             request_id="test-003",
             vehicle_id="TEST-VEH",
             diagnosis=diagnosis,
+            safety=safety,
         )
 
         print(f"  Destination: {MAINTENANCE_ADDR[:40]}...")
@@ -321,10 +330,27 @@ async def test_verification():
             recommendation="Check tyre pressure",
         )
 
+        # Create consistent WARNING scenario
+        safety = SafetyMessage(
+            safe_to_drive=True,
+            navigation_allowed=True,
+            tow_required=False,
+            risk_level="MEDIUM",
+        )
+
+        maintenance = MaintenanceMessage(
+            component="tyre",
+            action="Inspect and inflate affected tyre",
+            urgency="SOON",
+            reason="Low tyre pressure detected",
+        )
+
         req = VerificationRequest(
             request_id="test-006",
             vehicle_id="TEST-VEH",
             diagnosis=diagnosis,
+            safety=safety,
+            maintenance=maintenance,
         )
 
         print(f"  Destination: {VERIFICATION_ADDR[:40]}...")
