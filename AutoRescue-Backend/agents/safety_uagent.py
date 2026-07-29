@@ -24,18 +24,24 @@ agent = Agent(
     endpoint=[f"http://127.0.0.1:{SAFETY_AGENT_PORT}/submit"],
 )
 
-@agent.on_message(model=SafetyRequest)
-async def handle_safety(ctx: Context, sender: str, msg: SafetyRequest):
-    """Determine safety flags based on severity."""
+@agent.on_query(
+    model=SafetyRequest,
+    replies={SafetyMessage},
+)
+async def handle_safety_query(ctx: Context, sender: str, msg: SafetyRequest):
+    """Determine safety flags based on diagnosis severity (query/response pattern)."""
 
-    if msg.severity == "CRITICAL":
+    # Extract severity from diagnosis
+    severity = msg.diagnosis.severity if msg.diagnosis else "NORMAL"
+
+    if severity == "CRITICAL":
         response = SafetyMessage(
             safe_to_drive=False,
             navigation_allowed=False,
             tow_required=True,
             risk_level="HIGH"
         )
-    elif msg.severity == "WARNING":
+    elif severity == "WARNING":
         response = SafetyMessage(
             safe_to_drive=True,
             navigation_allowed=True,
@@ -50,7 +56,7 @@ async def handle_safety(ctx: Context, sender: str, msg: SafetyRequest):
             risk_level="LOW"
         )
 
-    logger.info(f"[SAFETY] {msg.request_id} → {msg.severity}={response.risk_level}")
+    logger.info(f"[SAFETY] {msg.request_id} → {severity}={response.risk_level}")
     await ctx.send(sender, response)
 
 
