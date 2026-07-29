@@ -57,6 +57,15 @@ async def handle_safety_query(ctx: Context, sender: str, msg: SafetyRequest):
         )
 
     logger.info(f"[SAFETY] {msg.request_id} → {severity}={response.risk_level}")
+
+    # Debug logging
+    try:
+        payload = response.model_dump()
+    except AttributeError:
+        payload = response.dict()
+    logger.info(f"[SAFETY] OUTGOING TYPE: {type(response).__name__}")
+    logger.info(f"[SAFETY] OUTGOING PAYLOAD: {payload}")
+
     await ctx.send(sender, response)
 
 
