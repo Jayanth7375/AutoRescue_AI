@@ -65,7 +65,29 @@ data class AutoRescueCheckResponse(
     val rescue: RescueDto? = null,
 
     @Json(name = "message")
-    val message: String
+    val message: String,
+
+    // Phase 9 Extended fields
+    @Json(name = "telemetry_validation")
+    val telemetryValidation: TelemetryValidationDto? = null,
+
+    @Json(name = "safety")
+    val safety: SafetyDto? = null,
+
+    @Json(name = "maintenance")
+    val maintenance: MaintenanceDto? = null,
+
+    @Json(name = "notifications")
+    val notifications: List<NotificationDto> = emptyList(),
+
+    @Json(name = "explanation")
+    val explanation: ExplanationDto? = null,
+
+    @Json(name = "verification")
+    val verification: VerificationDto? = null,
+
+    @Json(name = "agent_trace")
+    val agentTrace: List<AgentTraceEntryDto> = emptyList()
 )
 
 data class DiagnosisDto(
@@ -150,6 +172,97 @@ data class RescueDto(
 
     @Json(name = "estimated_dispatch_minutes")
     val estimatedDispatchMinutes: Int? = null
+)
+
+// ===== PHASE 9 EXTENDED DTOS =====
+
+data class TelemetryValidationDto(
+    @Json(name = "valid")
+    val valid: Boolean = true,
+
+    @Json(name = "issues")
+    val issues: List<String> = emptyList(),
+
+    @Json(name = "normalized_telemetry")
+    val normalizedTelemetry: Map<String, Any> = emptyMap()
+)
+
+data class SafetyDto(
+    @Json(name = "safe_to_drive")
+    val safeToDrive: Boolean,
+
+    @Json(name = "navigation_allowed")
+    val navigationAllowed: Boolean,
+
+    @Json(name = "tow_required")
+    val towRequired: Boolean,
+
+    @Json(name = "risk_level")
+    val riskLevel: String // LOW, MEDIUM, HIGH
+)
+
+data class MaintenanceDto(
+    @Json(name = "component")
+    val component: String,
+
+    @Json(name = "action")
+    val action: String,
+
+    @Json(name = "urgency")
+    val urgency: String, // ROUTINE, SOON, IMMEDIATE
+
+    @Json(name = "reason")
+    val reason: String = ""
+)
+
+data class NotificationDto(
+    @Json(name = "type")
+    val type: String,
+
+    @Json(name = "severity")
+    val severity: String, // LOW, MEDIUM, HIGH, CRITICAL
+
+    @Json(name = "title")
+    val title: String,
+
+    @Json(name = "message")
+    val message: String,
+
+    @Json(name = "recommendation")
+    val recommendation: String = "",
+
+    @Json(name = "timestamp")
+    val timestamp: String = ""
+)
+
+data class ExplanationDto(
+    @Json(name = "summary")
+    val summary: String,
+
+    @Json(name = "driver_guidance")
+    val driverGuidance: String
+)
+
+data class VerificationDto(
+    @Json(name = "verified")
+    val verified: Boolean,
+
+    @Json(name = "issues")
+    val issues: List<String> = emptyList(),
+
+    @Json(name = "corrections")
+    val corrections: List<String> = emptyList()
+)
+
+data class AgentTraceEntryDto(
+    @Json(name = "agent")
+    val agent: String,
+
+    @Json(name = "status")
+    val status: String, // COMPLETED, SKIPPED, FALLBACK, FAILED
+
+    @Json(name = "summary")
+    val summary: String
 )
 
 // ===== RETROFIT INTERFACE =====

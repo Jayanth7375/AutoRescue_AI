@@ -89,6 +89,7 @@ class AutoRescueRepository(
             Log.e("AutoRescueRepository", "HTTP error ${e.code()}: ${e.message}")
             val errorMsg = when (e.code()) {
                 400 -> "Invalid request data"
+                422 -> "Invalid vehicle telemetry. Please check the entered sensor values."
                 500 -> "Backend server error"
                 503 -> "AutoRescue service is temporarily unavailable"
                 else -> "HTTP error ${e.code()}"
