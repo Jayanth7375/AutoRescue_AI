@@ -156,6 +156,11 @@ async def autorescue_check(request: AutoRescueApiRequest):
                 timeout=60,
             )
             logger.info(f"[GATEWAY-P9] {request_id} ✓ Received response type: {type(result).__name__}")
+
+            # Unpack tuple response (response, status) if needed
+            if isinstance(result, tuple):
+                result, status = result
+                logger.info(f"[GATEWAY-P9] {request_id} UNPACKED: response={type(result).__name__}, status={type(status).__name__}")
         except Exception as e:
             logger.error(f"[GATEWAY-P9] {request_id} Orchestrator communication error: {type(e).__name__}: {e}")
             raise HTTPException(
