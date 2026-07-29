@@ -33,8 +33,11 @@ diagnostic_uagent = Agent(
 )
 
 
-@diagnostic_uagent.on_message(model=VehicleTelemetryMessage)
-async def handle_telemetry_request(ctx: Context, sender: str, msg: VehicleTelemetryMessage):
+@diagnostic_uagent.on_query(
+    model=VehicleTelemetryMessage,
+    replies={DiagnosticResponseMessage, DiagnosticErrorMessage},
+)
+async def handle_telemetry_query(ctx: Context, sender: str, msg: VehicleTelemetryMessage):
     """Process incoming telemetry data and send diagnostic response."""
     try:
         logger.info(f"Received telemetry request {msg.request_id} from {sender} for vehicle {msg.vehicle_id}")

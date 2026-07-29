@@ -27,8 +27,7 @@ from agents.messages import (
     ServiceResponseMessage,
     RescueResponseMessage,
 )
-from tools.diagnostic_rules import diagnose_vehicle
-from models.telemetry import VehicleTelemetry
+# Diagnostic is now called via uAgent, not directly
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -44,6 +43,7 @@ agent = Agent(
 )
 
 # Agent addresses (MUST be configured via environment variables)
+DIAGNOSTIC_ADDR = os.getenv("DIAGNOSTIC_AGENT_ADDRESS")
 TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS")
 SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS")
 MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
@@ -172,9 +172,15 @@ class Orchestrator10Agent:
                 ))
 
             # 2. DIAGNOSTIC AGENT
-            logger.info(f"[ORCH] {request_id} → Stage 2: Diagnostic Analysis")
+            logger.info(f"[PHASE9][Diagnostic] STAGE START")
+            logger.info(f"[PHASE9][Diagnostic] Destination: {DIAGNOSTIC_ADDR[:40] if DIAGNOSTIC_ADDR else 'NOT CONFIGURED'}...")
             try:
-                telemetry = VehicleTelemetry(
+                from agents.messages import VehicleTelemetryMessage as VehicleTelemetryMsg
+                from agents.messages import DiagnosticResponseMessage
+
+                logger.info(f"[PHASE9][Diagnostic] BUILD REQUEST")
+                diag_req = VehicleTelemetryMsg(
+                    request_id=request_id,
                     vehicle_id=vehicle_id,
                     engine_temperature=request.engine_temperature,
                     battery_voltage=request.battery_voltage,
@@ -184,27 +190,39 @@ class Orchestrator10Agent:
                     rear_right_tyre_psi=request.rear_right_tyre_psi,
                     coolant_level=request.coolant_level,
                 )
+                logger.info(f"[PHASE9][Diagnostic] REQUEST OK - sending to {DIAGNOSTIC_ADDR[:30]}...")
 
-                diagnostic_result = diagnose_vehicle(telemetry)
-                severity_str = diagnostic_result.severity.value
-
-                diagnosis = DiagnosisSummary(
-                    issue=diagnostic_result.issue,
-                    affected_component=diagnostic_result.affected_component,
-                    severity=severity_str,
-                    safe_to_drive=diagnostic_result.safe_to_drive,
-                    recommendation=diagnostic_result.recommendation,
+                logger.info(f"[PHASE9][Diagnostic] SEND")
+                diag_resp = await self.ctx.send_and_receive(
+                    destination=DIAGNOSTIC_ADDR,
+                    message=diag_req,
+                    response_type=DiagnosticResponseMessage,
+                    timeout=10,
                 )
 
+                logger.info(f"[PHASE9][Diagnostic] RESPONSE RECEIVED - type: {type(diag_resp).__name__}")
+                if isinstance(diag_resp, tuple):
+                    logger.info(f"[PHASE9][Diagnostic] RESPONSE is tuple, extracting [1]")
+                    diag_resp = diag_resp[1]
+
+                diagnosis = DiagnosisSummary(
+                    issue=diag_resp.issue,
+                    affected_component=diag_resp.affected_component,
+                    severity=diag_resp.severity,
+                    safe_to_drive=diag_resp.safe_to_drive,
+                    recommendation=diag_resp.recommendation,
+                )
+
+                logger.info(f"[PHASE9][Diagnostic] PARSE OK - severity={diagnosis.severity}")
                 trace.append(AgentTraceEntry(
                     agent="Diagnostic Agent",
                     status="COMPLETED",
-                    summary=f"{severity_str}: {diagnostic_result.issue[:40]}"
+                    summary=f"{diagnosis.severity}: {diagnosis.issue[:40]}"
                 ))
-                logger.info(f"[ORCH] {request_id} ✓ Diagnostic: {severity_str}")
+                logger.info(f"[ORCH] {request_id} ✓ Diagnostic: {diagnosis.severity}")
 
             except Exception as e:
-                logger.error(f"[ORCH] {request_id} Diagnostic failed: {e}")
+                logger.exception(f"[PHASE9][Diagnostic] REQUEST FAILED - {type(e).__name__}: {e}")
                 trace.append(AgentTraceEntry(
                     agent="Diagnostic Agent",
                     status="FAILED",
