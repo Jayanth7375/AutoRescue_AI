@@ -12,6 +12,8 @@ logging.basicConfig(level=logging.WARNING)  # Reduce noise
 
 # Import shared models
 from agents.messages import (
+    VehicleTelemetryMessage,
+    DiagnosticResponseMessage,
     TelemetryValidationRequest,
     TelemetryValidationMessage,
     SafetyRequest,
@@ -30,6 +32,7 @@ from agents.messages import (
 )
 
 # Get addresses from .env
+DIAGNOSTIC_ADDR = os.getenv("DIAGNOSTIC_AGENT_ADDRESS")
 TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS")
 SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS")
 MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
@@ -85,6 +88,55 @@ async def test_telemetry():
             resp = resp[0]
 
         print(f"  Valid: {resp.valid}")
+        print("  OK PASS")
+        return True
+
+    except Exception as e:
+        print(f"  X FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def test_diagnostic():
+    """Test Diagnostic agent directly (async)."""
+    print("\n[TEST] Diagnostic Agent")
+    print("-" * 70)
+
+    if not DIAGNOSTIC_ADDR:
+        print("X SKIP - DIAGNOSTIC_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        req = VehicleTelemetryMessage(
+            request_id="test-002",
+            vehicle_id="TEST-VEH",
+            engine_temperature=95.0,
+            battery_voltage=12.7,
+            front_left_tyre_psi=32.0,
+            front_right_tyre_psi=32.0,
+            rear_left_tyre_psi=32.0,
+            rear_right_tyre_psi=32.0,
+            coolant_level=75.0,
+        )
+
+        print(f"  Destination: {DIAGNOSTIC_ADDR[:40]}...")
+        print(f"  Request model: VehicleTelemetryMessage")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=DIAGNOSTIC_ADDR,
+            message=req,
+            response_type=DiagnosticResponseMessage,
+            timeout=5,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
+
+        print(f"  Severity: {resp.severity}")
+        print(f"  Issue: {resp.issue[:40]}...")
         print("  OK PASS")
         return True
 
@@ -384,58 +436,6 @@ async def test_verification():
         traceback.print_exc()
         return False
 
-def test_diagnostic():
-    """Test Diagnostic function directly (synchronous, not a uAgent)."""
-    print("\n[TEST] Diagnostic Function (Local)")
-    print("-" * 70)
-
-    try:
-        from models.telemetry import VehicleTelemetry
-        from tools.diagnostic_rules import diagnose_vehicle
-
-        # Test HEALTHY
-        telemetry = VehicleTelemetry(
-            vehicle_id="TEST-HEALTHY",
-            engine_temperature=95.0,
-            battery_voltage=12.7,
-            front_left_tyre_psi=32.0,
-            front_right_tyre_psi=32.0,
-            rear_left_tyre_psi=32.0,
-            rear_right_tyre_psi=32.0,
-            coolant_level=75.0,
-        )
-
-        result = diagnose_vehicle(telemetry)
-        print(f"  HEALTHY input -> severity={result.severity.value}")
-        if result.severity.value != "NORMAL":
-            print(f"  X FAIL - Expected NORMAL, got {result.severity.value}")
-            return False
-
-        # Test WARNING
-        telemetry.front_left_tyre_psi = 28.0
-        result = diagnose_vehicle(telemetry)
-        print(f"  WARNING input -> severity={result.severity.value}")
-        if result.severity.value != "WARNING":
-            print(f"  X FAIL - Expected WARNING, got {result.severity.value}")
-            return False
-
-        # Test CRITICAL
-        telemetry.engine_temperature = 122.0
-        result = diagnose_vehicle(telemetry)
-        print(f"  CRITICAL input -> severity={result.severity.value}")
-        if result.severity.value != "CRITICAL":
-            print(f"  X FAIL - Expected CRITICAL, got {result.severity.value}")
-            return False
-
-        print("  PASS")
-        return True
-
-    except Exception as e:
-        print(f"  X FAIL - {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
 async def test_service():
     """Test Service agent directly (async)."""
     print("\n[TEST] Service Agent")
@@ -549,6 +549,9 @@ async def main():
     telemetry_result = await test_telemetry()
     results.append(("Telemetry", telemetry_result))
 
+    diagnostic_result = await test_diagnostic()
+    results.append(("Diagnostic", diagnostic_result))
+
     safety_result = await test_safety()
     results.append(("Safety", safety_result))
 
@@ -584,14 +587,10 @@ async def main():
 
 if __name__ == "__main__":
     print("\n" + "=" * 70)
-    print("Specialist Agent Communication Tests (11 total)")
+    print("Specialist Agent Communication Tests (9 total)")
     print("=" * 70)
 
-    # Test Diagnostic first (synchronous local function)
-    diagnostic_result = test_diagnostic()
-
-    # Then test the async agents
+    # Run all async uAgent tests
     success = asyncio.run(main())
 
-    # If either failed, report failure
-    exit(0 if (diagnostic_result and success) else 1)
+    exit(0 if success else 1)

@@ -40,14 +40,14 @@ TEST_SCENARIOS = {
         "expected_status": "ASSISTANCE_REQUIRED"
     },
     "InvalidTelemetry": {
-        "engine_temperature": 90.0,  # Normal operating temperature
-        "battery_voltage": 12.8,  # Normal voltage
-        "front_left_tyre_psi": 32.0,
+        "engine_temperature": 90.0,
+        "battery_voltage": 12.8,
+        "front_left_tyre_psi": -10.0,  # INVALID: negative tyre pressure
         "front_right_tyre_psi": 32.0,
         "rear_left_tyre_psi": 32.0,
         "rear_right_tyre_psi": 32.0,
-        "coolant_level": 80.0,  # Normal coolant level
-        "expected_status": "HEALTHY"  # Should process as healthy
+        "coolant_level": 80.0,
+        "expected_status": "VALIDATION_ERROR"  # Should return 422
     }
 }
 
@@ -82,6 +82,18 @@ def test_autorescue_check():
                     f"{BASE_URL}/api/autorescue/check",  # Canonical Phase 9 endpoint
                     json=payload
                 )
+
+            # Handle validation errors for invalid telemetry
+            if scenario_name == "InvalidTelemetry":
+                if response.status_code == 422:
+                    print(f"  [PASS] Validation error correctly returned")
+                    print(f"    HTTP {response.status_code}")
+                    passed += 1
+                    continue
+                else:
+                    print(f"  [FAIL] Expected 422, got HTTP {response.status_code}")
+                    failed += 1
+                    continue
 
             if response.status_code != 200:
                 print(f"  [FAIL] HTTP {response.status_code}")
