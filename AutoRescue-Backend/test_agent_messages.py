@@ -49,7 +49,7 @@ async def test_telemetry():
     print("-" * 70)
 
     if not TELEMETRY_ADDR:
-        print("✗ SKIP - TELEMETRY_AGENT_ADDRESS not configured")
+        print("X SKIP - TELEMETRY_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -81,15 +81,15 @@ async def test_telemetry():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Valid: {resp.valid}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -100,7 +100,7 @@ async def test_safety():
     print("-" * 70)
 
     if not SAFETY_ADDR:
-        print("✗ SKIP - SAFETY_AGENT_ADDRESS not configured")
+        print("X SKIP - SAFETY_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -132,18 +132,18 @@ async def test_safety():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Safe to drive: {resp.safe_to_drive}")
         print(f"  Navigation allowed: {resp.navigation_allowed}")
         print(f"  Tow required: {resp.tow_required}")
         print(f"  Risk level: {resp.risk_level}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -154,7 +154,7 @@ async def test_maintenance():
     print("-" * 70)
 
     if not MAINTENANCE_ADDR:
-        print("✗ SKIP - MAINTENANCE_AGENT_ADDRESS not configured")
+        print("X SKIP - MAINTENANCE_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -194,17 +194,17 @@ async def test_maintenance():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Component: {resp.component}")
         print(f"  Urgency: {resp.urgency}")
         print(f"  Action: {resp.action[:50]}...")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -215,7 +215,7 @@ async def test_notification():
     print("-" * 70)
 
     if not NOTIFICATION_ADDR:
-        print("✗ SKIP - NOTIFICATION_AGENT_ADDRESS not configured")
+        print("X SKIP - NOTIFICATION_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -246,17 +246,17 @@ async def test_notification():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Type: {resp.type}")
         print(f"  Severity: {resp.severity}")
         print(f"  Title: {resp.title}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -267,7 +267,7 @@ async def test_explanation():
     print("-" * 70)
 
     if not EXPLANATION_ADDR:
-        print("✗ SKIP - EXPLANATION_AGENT_ADDRESS not configured")
+        print("X SKIP - EXPLANATION_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -298,8 +298,8 @@ async def test_explanation():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Summary: {resp.summary[:50]}...")
         print(f"  Guidance: {resp.driver_guidance[:50]}...")
@@ -307,11 +307,11 @@ async def test_explanation():
         groq_key = os.getenv("GROQ_API_KEY", "").strip()
         mode = "COMPLETED" if groq_key else "FALLBACK"
         print(f"  LLM Mode: {mode}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -322,7 +322,7 @@ async def test_verification():
     print("-" * 70)
 
     if not VERIFICATION_ADDR:
-        print("✗ SKIP - VERIFICATION_AGENT_ADDRESS not configured")
+        print("X SKIP - VERIFICATION_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -370,16 +370,16 @@ async def test_verification():
 
         print(f"  Response type: {type(resp).__name__}")
         if isinstance(resp, tuple):
-            print(f"  Response is tuple, extracting [1]")
-            resp = resp[1]
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
 
         print(f"  Verified: {resp.verified}")
         print(f"  Issues: {len(resp.issues)}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -406,32 +406,32 @@ def test_diagnostic():
         )
 
         result = diagnose_vehicle(telemetry)
-        print(f"  HEALTHY input → severity={result.severity.value}")
+        print(f"  HEALTHY input -> severity={result.severity.value}")
         if result.severity.value != "NORMAL":
-            print(f"  ✗ FAIL - Expected NORMAL, got {result.severity.value}")
+            print(f"  X FAIL - Expected NORMAL, got {result.severity.value}")
             return False
 
         # Test WARNING
         telemetry.front_left_tyre_psi = 28.0
         result = diagnose_vehicle(telemetry)
-        print(f"  WARNING input → severity={result.severity.value}")
+        print(f"  WARNING input -> severity={result.severity.value}")
         if result.severity.value != "WARNING":
-            print(f"  ✗ FAIL - Expected WARNING, got {result.severity.value}")
+            print(f"  X FAIL - Expected WARNING, got {result.severity.value}")
             return False
 
         # Test CRITICAL
         telemetry.engine_temperature = 122.0
         result = diagnose_vehicle(telemetry)
-        print(f"  CRITICAL input → severity={result.severity.value}")
+        print(f"  CRITICAL input -> severity={result.severity.value}")
         if result.severity.value != "CRITICAL":
-            print(f"  ✗ FAIL - Expected CRITICAL, got {result.severity.value}")
+            print(f"  X FAIL - Expected CRITICAL, got {result.severity.value}")
             return False
 
-        print("  ✓ PASS")
+        print("  PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -443,7 +443,7 @@ async def test_service():
 
     SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
     if not SERVICE_ADDR:
-        print("✗ SKIP - SERVICE_AGENT_ADDRESS not configured")
+        print("X SKIP - SERVICE_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -479,11 +479,11 @@ async def test_service():
         print(f"  Service centres: {len(resp.centres)}")
         print(f"  Navigation allowed: {resp.navigation_allowed}")
         print(f"  Tow recommended: {resp.tow_recommended}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -495,7 +495,7 @@ async def test_rescue():
 
     RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
     if not RESCUE_ADDR:
-        print("✗ SKIP - RESCUE_AGENT_ADDRESS not configured")
+        print("X SKIP - RESCUE_AGENT_ADDRESS not configured")
         return False
 
     try:
@@ -532,11 +532,11 @@ async def test_rescue():
         print(f"  Tow required: {resp.tow_required}")
         print(f"  Can drive: {resp.can_drive}")
         print(f"  Priority: {resp.priority}")
-        print("  ✓ PASS")
+        print("  OK PASS")
         return True
 
     except Exception as e:
-        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        print(f"  X FAIL - {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -576,7 +576,7 @@ async def main():
     passed = sum(1 for _, p in results if p)
     print(f"  {passed}/{len(results)} PASS")
     for name, result in results:
-        status = "✓" if result else "✗"
+        status = "OK" if result else "X"
         print(f"  {status} {name}")
     print("=" * 70 + "\n")
 
