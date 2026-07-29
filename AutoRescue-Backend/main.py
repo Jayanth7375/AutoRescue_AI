@@ -92,7 +92,7 @@ async def diagnose(telemetry: VehicleTelemetry) -> DiagnosticResult:
         raise HTTPException(status_code=500, detail=f"Diagnostic analysis failed: {str(e)}")
 
 
-@app.post("/api/autorescue/check", response_model=AutoRescueApiResponse)
+@app.post("/api/autorescue/check", response_model=AutoRescueApiResponseExtended)
 async def autorescue_check(request: AutoRescueApiRequest):
     """
     Phase 9 AutoRescue diagnostic check - Real 10-Agent Orchestration.
@@ -252,7 +252,70 @@ async def autorescue_check(request: AutoRescueApiRequest):
                 estimated_dispatch_minutes=rescue.estimated_dispatch_minutes,
             )
 
-        api_response = AutoRescueApiResponse(
+        # Convert Phase 9 extended fields to API response models
+        telemetry_validation_api = None
+        if result.telemetry_validation:
+            telemetry_validation_api = TelemetryValidationApiResponse(
+                valid=result.telemetry_validation.valid,
+                issues=result.telemetry_validation.issues,
+                normalized_telemetry=result.telemetry_validation.normalized_telemetry,
+            )
+
+        safety_api = None
+        if result.safety:
+            safety_api = SafetyApiResponse(
+                safe_to_drive=result.safety.safe_to_drive,
+                navigation_allowed=result.safety.navigation_allowed,
+                tow_required=result.safety.tow_required,
+                risk_level=result.safety.risk_level,
+            )
+
+        maintenance_api = None
+        if result.maintenance:
+            maintenance_api = MaintenanceApiResponse(
+                component=result.maintenance.component,
+                action=result.maintenance.action,
+                urgency=result.maintenance.urgency,
+                reason=result.maintenance.reason,
+            )
+
+        notifications_api = []
+        if result.notifications:
+            for notif in result.notifications:
+                notifications_api.append(NotificationApiResponse(
+                    type=notif.type,
+                    severity=notif.severity,
+                    title=notif.title,
+                    message=notif.message,
+                    recommendation=notif.recommendation,
+                    timestamp=notif.timestamp,
+                ))
+
+        explanation_api = None
+        if result.explanation:
+            explanation_api = ExplanationApiResponse(
+                summary=result.explanation.summary,
+                driver_guidance=result.explanation.driver_guidance,
+            )
+
+        verification_api = None
+        if result.verification:
+            verification_api = VerificationApiResponse(
+                verified=result.verification.verified,
+                issues=result.verification.issues,
+                corrections=result.verification.corrections,
+            )
+
+        agent_trace_api = []
+        if result.agent_trace:
+            for entry in result.agent_trace:
+                agent_trace_api.append(AgentTraceEntryApiResponse(
+                    agent=entry.agent,
+                    status=entry.status,
+                    summary=entry.summary,
+                ))
+
+        api_response = AutoRescueApiResponseExtended(
             request_id=result_msg.request_id,
             vehicle_id=result_msg.vehicle_id,
             status=status,
@@ -267,6 +330,13 @@ async def autorescue_check(request: AutoRescueApiRequest):
             navigation_allowed=navigation_allowed,
             rescue=rescue_api,
             message=message,
+            telemetry_validation=telemetry_validation_api,
+            safety=safety_api,
+            maintenance=maintenance_api,
+            notifications=notifications_api,
+            explanation=explanation_api,
+            verification=verification_api,
+            agent_trace=agent_trace_api,
         )
 
         return api_response
