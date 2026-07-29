@@ -122,8 +122,10 @@ class Orchestrator10Agent:
 
         try:
             # 1. TELEMETRY VALIDATION
-            logger.info(f"[ORCH] {request_id} → Stage 1: Telemetry Validation")
+            logger.info(f"[PHASE9][Telemetry] STAGE START")
+            logger.info(f"[PHASE9][Telemetry] Destination: {TELEMETRY_ADDR[:40] if TELEMETRY_ADDR else 'NOT CONFIGURED'}...")
             try:
+                logger.info(f"[PHASE9][Telemetry] BUILD REQUEST")
                 telemetry_req = TelemetryValidationRequest(
                     request_id=request_id,
                     vehicle_id=vehicle_id,
@@ -137,7 +139,9 @@ class Orchestrator10Agent:
                     latitude=request.latitude,
                     longitude=request.longitude,
                 )
+                logger.info(f"[PHASE9][Telemetry] REQUEST OK - sending to {TELEMETRY_ADDR[:30]}...")
 
+                logger.info(f"[PHASE9][Telemetry] SEND")
                 telemetry_resp = await self.ctx.send_and_receive(
                     destination=TELEMETRY_ADDR,
                     message=telemetry_req,
@@ -145,9 +149,12 @@ class Orchestrator10Agent:
                     timeout=10,
                 )
 
+                logger.info(f"[PHASE9][Telemetry] RESPONSE RECEIVED - type: {type(telemetry_resp).__name__}")
                 if isinstance(telemetry_resp, tuple):
+                    logger.info(f"[PHASE9][Telemetry] RESPONSE is tuple, extracting [1]")
                     telemetry_resp = telemetry_resp[1]
 
+                logger.info(f"[PHASE9][Telemetry] PARSE OK - valid={getattr(telemetry_resp, 'valid', '?')}")
                 validation = telemetry_resp
                 trace.append(AgentTraceEntry(
                     agent="Telemetry Agent",
@@ -157,7 +164,7 @@ class Orchestrator10Agent:
                 logger.info(f"[ORCH] {request_id} ✓ Telemetry: valid={validation.valid}")
 
             except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Telemetry failed (fallback): {e}")
+                logger.exception(f"[PHASE9][Telemetry] REQUEST FAILED - {type(e).__name__}: {e}")
                 trace.append(AgentTraceEntry(
                     agent="Telemetry Agent",
                     status="FALLBACK",
@@ -206,14 +213,18 @@ class Orchestrator10Agent:
                 return self._error_response(request_id, vehicle_id, trace, "Diagnostic failed")
 
             # 3. SAFETY DETERMINATION
-            logger.info(f"[ORCH] {request_id} → Stage 3: Safety Determination")
+            logger.info(f"[PHASE9][Safety] STAGE START")
+            logger.info(f"[PHASE9][Safety] Destination: {SAFETY_ADDR[:40] if SAFETY_ADDR else 'NOT CONFIGURED'}...")
             try:
+                logger.info(f"[PHASE9][Safety] BUILD REQUEST")
                 safety_req = SafetyRequest(
                     request_id=request_id,
                     vehicle_id=vehicle_id,
                     diagnosis=diagnosis,
                 )
+                logger.info(f"[PHASE9][Safety] REQUEST OK - sending to {SAFETY_ADDR[:30]}...")
 
+                logger.info(f"[PHASE9][Safety] SEND")
                 safety_resp = await self.ctx.send_and_receive(
                     destination=SAFETY_ADDR,
                     message=safety_req,
@@ -221,9 +232,12 @@ class Orchestrator10Agent:
                     timeout=10,
                 )
 
+                logger.info(f"[PHASE9][Safety] RESPONSE RECEIVED - type: {type(safety_resp).__name__}")
                 if isinstance(safety_resp, tuple):
+                    logger.info(f"[PHASE9][Safety] RESPONSE is tuple, extracting [1]")
                     safety_resp = safety_resp[1]
 
+                logger.info(f"[PHASE9][Safety] PARSE OK - safe={getattr(safety_resp, 'safe_to_drive', '?')}")
                 safety = safety_resp
                 trace.append(AgentTraceEntry(
                     agent="Safety Agent",
@@ -233,7 +247,7 @@ class Orchestrator10Agent:
                 logger.info(f"[ORCH] {request_id} ✓ Safety: safe_to_drive={safety.safe_to_drive}")
 
             except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Safety failed (fallback): {e}")
+                logger.exception(f"[PHASE9][Safety] REQUEST FAILED - {type(e).__name__}: {e}")
                 trace.append(AgentTraceEntry(
                     agent="Safety Agent",
                     status="FALLBACK",
