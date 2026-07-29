@@ -152,7 +152,8 @@ fun AutoRescueMainApp(
 
             composable(Screen.Notifications.route) {
                 NotificationsScreen(
-                    viewModel = vehicleViewModel,
+                    vehicleViewModel = vehicleViewModel,
+                    diagnosticsViewModel = diagnosticsViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

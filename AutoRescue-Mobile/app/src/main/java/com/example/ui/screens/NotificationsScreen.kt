@@ -27,17 +27,46 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.HealthStatus
+import com.example.model.AlertItem
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
+import com.example.viewmodel.DiagnosticsViewModel
 import com.example.viewmodel.VehicleViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(
-    viewModel: VehicleViewModel,
+    vehicleViewModel: VehicleViewModel,
+    diagnosticsViewModel: DiagnosticsViewModel? = null,
     onNavigateBack: () -> Unit
 ) {
-    val notifications by viewModel.notifications.collectAsState()
+    // Get latest backend response
+    val diagnosticState by diagnosticsViewModel?.diagnosticState?.collectAsState() ?: androidx.compose.runtime.mutableStateOf(null)
+    val backendResponse = diagnosticState?.backendResponse
+
+    // Convert backend notifications to AlertItem format
+    val backendNotifications = backendResponse?.notifications?.map { backendNotif ->
+        AlertItem(
+            id = "${backendNotif.type}-${backendNotif.severity}-${System.currentTimeMillis()}",
+            title = backendNotif.title,
+            message = backendNotif.message,
+            timestamp = backendNotif.timestamp.ifEmpty { "Just now" },
+            severity = when (backendNotif.severity.uppercase()) {
+                "CRITICAL", "HIGH" -> HealthStatus.CRITICAL
+                "MEDIUM", "WARNING" -> HealthStatus.WARNING
+                else -> HealthStatus.HEALTHY
+            },
+            isCriticalInstruction = backendNotif.severity.uppercase() == "CRITICAL",
+            isRead = false
+        )
+    } ?: emptyList()
+
+    // Use backend notifications if available, otherwise fall back to static notifications
+    val notifications by if (backendNotifications.isNotEmpty()) {
+        androidx.compose.runtime.mutableStateOf(backendNotifications)
+    } else {
+        vehicleViewModel.notifications.collectAsState()
+    }
 
     Scaffold(
         topBar = {
@@ -96,7 +125,12 @@ fun NotificationsScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = if (isCritical) 6.dp else 2.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.markNotificationRead(item.id) }
+                            .clickable {
+                                // Only mark as read if from VehicleViewModel (has markNotificationRead)
+                                if (backendNotifications.isEmpty()) {
+                                    vehicleViewModel.markNotificationRead(item.id)
+                                }
+                            }
                             .testTag("notification_card_${item.id}")
                     ) {
                         Column(
