@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -172,8 +173,10 @@ fun RescueScreen(
                 })
             } else {
                 // Trigger search on first compose
-                LaunchedEffect(rescueState.placesCategory) {
-                    rescueViewModel.searchNearbyPlaces(latitude, longitude, context)
+                if (latitude != 0.0 && longitude != 0.0) {
+                    LaunchedEffect(rescueState.placesCategory) {
+                        rescueViewModel.searchNearbyPlaces(latitude, longitude, context)
+                    }
                 }
 
                 NearbyPlacesScreen(
@@ -300,6 +303,60 @@ private fun RescueCategorySelectionScreen(
 }
 
 @Composable
+private fun ServiceCentreItem(
+    name: String,
+    address: String,
+    distance: Double,
+    rating: Double?,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                if (rating != null) {
+                    Text(
+                        text = "★ $rating",
+                        fontSize = 11.sp,
+                        color = WarningAmber
+                    )
+                }
+            }
+            Text(
+                text = address,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = String.format("%.1f km", distance),
+                fontSize = 11.sp,
+                color = HealthyGreen,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun RescueCategoryCard(
     option: RescueOption,
     onClick: () -> Unit
@@ -363,6 +420,7 @@ private fun RescueCategoryCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocationPermissionNeededScreen(onBackClick: () -> Unit) {
     Scaffold(
@@ -479,7 +537,7 @@ private fun RescueResultScreen(
 
                             if (backendResponse.rescue.towRequired) {
                                 Button(
-                                    onClick = { openTowDialer() },
+                                    onClick = { openTowDialer(context) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(44.dp)
@@ -494,12 +552,28 @@ private fun RescueResultScreen(
 
             if (backendResponse?.serviceCentres?.isNotEmpty() == true) {
                 item {
-                    NearbyServiceCentresCard(
-                        centres = backendResponse.serviceCentres,
-                        onServiceCentreClick = { centre ->
-                            openServiceCentreInMaps(centre.latitude, centre.longitude, centre.name)
-                        }
+                    Text(
+                        "Available Service Centres",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(top = 12.dp)
                     )
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        items(backendResponse.serviceCentres) { centre ->
+                            ServiceCentreItem(
+                                name = centre.name,
+                                address = centre.address,
+                                distance = centre.distanceKm,
+                                rating = centre.rating,
+                                onClick = {
+                                    openServiceCentreInMaps(context, centre.latitude, centre.longitude, centre.name)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

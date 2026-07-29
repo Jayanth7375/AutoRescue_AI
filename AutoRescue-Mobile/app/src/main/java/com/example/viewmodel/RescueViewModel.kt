@@ -47,18 +47,24 @@ class RescueViewModel(
         Log.d("RescueViewModel", "Selected category: $category")
         _rescueState.update {
             when (category) {
-                "BATTERY_ISSUE" -> it.copy(
-                    selectedRescueCategory = category,
-                    currentFlow = "BATTERY_SELECTION"
-                )
-                "ACCIDENT" -> it.copy(
-                    selectedRescueCategory = category,
-                    currentFlow = "ACCIDENT_CHECK"
-                )
-                else -> it.copy(
-                    selectedRescueCategory = category,
-                    currentFlow = "NEARBY_PLACES"
-                )
+                "BATTERY_ISSUE" -> {
+                    it.copy(
+                        selectedRescueCategory = category,
+                        currentFlow = "BATTERY_SELECTION"
+                    )
+                }
+                "ACCIDENT" -> {
+                    it.copy(
+                        selectedRescueCategory = category,
+                        currentFlow = "ACCIDENT_CHECK"
+                    )
+                }
+                else -> {
+                    it.copy(
+                        selectedRescueCategory = category,
+                        currentFlow = "NEARBY_PLACES"
+                    )
+                }
             }
         }
     }
