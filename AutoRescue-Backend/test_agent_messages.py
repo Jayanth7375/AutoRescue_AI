@@ -25,6 +25,8 @@ from agents.messages import (
     VerificationRequest,
     VerificationMessage,
     DiagnosisSummary,
+    ServiceResponseMessage,
+    RescueResponseMessage,
 )
 
 # Get addresses from .env
@@ -34,6 +36,8 @@ MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
 NOTIFICATION_ADDR = os.getenv("NOTIFICATION_AGENT_ADDRESS")
 EXPLANATION_ADDR = os.getenv("EXPLANATION_AGENT_ADDRESS")
 VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS")
+SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
+RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
 
 print("\n" + "=" * 70)
 print("Agent Message Smoke Test (Async)")
@@ -432,6 +436,111 @@ def test_diagnostic():
         traceback.print_exc()
         return False
 
+async def test_service():
+    """Test Service agent directly (async)."""
+    print("\n[TEST] Service Agent")
+    print("-" * 70)
+
+    SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
+    if not SERVICE_ADDR:
+        print("✗ SKIP - SERVICE_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        from agents.messages import ServiceRequestMessage
+
+        req = ServiceRequestMessage(
+            request_id="test-007",
+            vehicle_id="TEST-VEH",
+            issue="Low tyre pressure",
+            affected_component="tyre",
+            severity="WARNING",
+            safe_to_drive=True,
+            latitude=19.076,
+            longitude=72.8777,
+        )
+
+        print(f"  Destination: {SERVICE_ADDR[:40]}...")
+        print(f"  Request model: ServiceRequestMessage (WARNING severity)")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=SERVICE_ADDR,
+            message=req,
+            response_type=ServiceResponseMessage,
+            timeout=10,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
+
+        print(f"  Service centres: {len(resp.centres)}")
+        print(f"  Navigation allowed: {resp.navigation_allowed}")
+        print(f"  Tow recommended: {resp.tow_recommended}")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def test_rescue():
+    """Test Rescue agent directly (async)."""
+    print("\n[TEST] Rescue Agent")
+    print("-" * 70)
+
+    RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
+    if not RESCUE_ADDR:
+        print("✗ SKIP - RESCUE_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        from agents.messages import RescueRequestMessage
+
+        req = RescueRequestMessage(
+            request_id="test-008",
+            vehicle_id="TEST-VEH",
+            issue="Engine overheating",
+            affected_component="engine",
+            severity="CRITICAL",
+            safe_to_drive=False,
+            latitude=19.076,
+            longitude=72.8777,
+        )
+
+        print(f"  Destination: {RESCUE_ADDR[:40]}...")
+        print(f"  Request model: RescueRequestMessage (CRITICAL severity)")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=RESCUE_ADDR,
+            message=req,
+            response_type=RescueResponseMessage,
+            timeout=10,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [0]")
+            resp = resp[0]
+
+        print(f"  Assistance required: {resp.assistance_required}")
+        print(f"  Tow required: {resp.tow_required}")
+        print(f"  Can drive: {resp.can_drive}")
+        print(f"  Priority: {resp.priority}")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 async def main():
     """Run all tests in a single async context."""
     results = []
@@ -455,6 +564,12 @@ async def main():
     verification_result = await test_verification()
     results.append(("Verification", verification_result))
 
+    service_result = await test_service()
+    results.append(("Service", service_result))
+
+    rescue_result = await test_rescue()
+    results.append(("Rescue", rescue_result))
+
     # Summary
     print("\n" + "=" * 70)
     print("Results:")
@@ -469,7 +584,7 @@ async def main():
 
 if __name__ == "__main__":
     print("\n" + "=" * 70)
-    print("Specialist Agent Communication Tests (9 total)")
+    print("Specialist Agent Communication Tests (11 total)")
     print("=" * 70)
 
     # Test Diagnostic first (synchronous local function)
