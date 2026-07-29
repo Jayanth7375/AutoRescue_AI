@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:usesCleartextTraffic="true">
+        <!-- Debug configuration: allows cleartext (HTTP) traffic for development -->
+        <!-- This enables local development server access via ADB reverse -->
+        <!-- Release builds inherit android:usesCleartextTraffic="false" (default security) -->
+    </application>
+
+</manifest>

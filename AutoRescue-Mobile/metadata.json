@@ -1,0 +1,6 @@
+{
+  "name": "AutoRescue AI",
+  "description": "Vehicle safety, diagnostics and roadside assistance app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
