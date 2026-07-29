@@ -32,6 +32,7 @@ from agents.messages import (
     AutoRescueErrorMessage,
 )
 from services.chat_service import ChatRequest, ChatResponse, chat_with_autorescue
+from services.nearby_places_service import NearbyPlacesService, NearbyPlacesModel
 
 load_dotenv()
 
@@ -373,6 +374,70 @@ async def chat(request: ChatRequest):
     """
     logger.info(f"[CHAT] {request.vehicle_id}: {request.message[:50]}...")
     return await chat_with_autorescue(request)
+
+
+@app.get("/api/rescue/nearby", response_model=NearbyPlacesModel)
+async def get_nearby_places(
+    category: str,
+    latitude: float,
+    longitude: float,
+    max_results: int = 10
+):
+    """
+    Search for nearby assistance places based on rescue category.
+
+    Args:
+        category: Rescue category (EV_CHARGING, BATTERY_SERVICE, FUEL_STATION, HOSPITAL)
+        latitude: Current latitude
+        longitude: Current longitude
+        max_results: Maximum results to return (default 10, max 10)
+
+    Returns:
+        NearbyPlacesModel with sorted nearby places
+    """
+    try:
+        # Validate category
+        if category not in NearbyPlacesService.SUPPORTED_CATEGORIES:
+            logger.error(f"[RESCUE] Invalid category: {category}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid category. Supported: {', '.join(NearbyPlacesService.SUPPORTED_CATEGORIES)}"
+            )
+
+        # Validate coordinates
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            logger.error(f"[RESCUE] Invalid coordinates: lat={latitude}, lon={longitude}")
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180"
+            )
+
+        # Limit max results
+        max_results = min(max_results, 10)
+
+        logger.info(f"[RESCUE] Searching nearby {category} at {latitude},{longitude}")
+
+        result = await NearbyPlacesService.search_nearby_places(
+            latitude=latitude,
+            longitude=longitude,
+            category=category,
+            max_results=max_results
+        )
+
+        logger.info(f"[RESCUE] Found {result.count} places for {category}")
+        return result
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"[RESCUE] Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[RESCUE] Error searching nearby places: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to search for nearby places. Please try again."
+        )
 
 
 if __name__ == "__main__":

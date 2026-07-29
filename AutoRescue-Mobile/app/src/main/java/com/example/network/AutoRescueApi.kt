@@ -2,9 +2,13 @@ package com.example.network
 
 import com.example.model.ChatRequest
 import com.example.model.ChatResponse
+import com.example.model.NearbyPlace
+import com.example.model.NearbyPlacesResponse
 import com.squareup.moshi.Json
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 // ===== REQUEST DTOS =====
 
@@ -278,4 +282,12 @@ interface AutoRescueApi {
     suspend fun sendChatMessage(
         @Body request: ChatRequest
     ): ChatResponse
+
+    @GET("api/rescue/nearby")
+    suspend fun getNearbyPlaces(
+        @Query("category") category: String,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("max_results") maxResults: Int = 10
+    ): NearbyPlacesResponse
 }
