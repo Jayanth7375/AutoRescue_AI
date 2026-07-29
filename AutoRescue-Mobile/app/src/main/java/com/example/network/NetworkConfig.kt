@@ -1,10 +1,8 @@
 package com.example.network
 
 import android.util.Log
-import com.example.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -21,7 +19,7 @@ object NetworkConfig {
     }
 
     val baseUrl: String
-        get() = if (BuildConfig.DEBUG) DEBUG_BASE_URL else DEBUG_BASE_URL
+        get() = DEBUG_BASE_URL
 
     private val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -31,11 +29,7 @@ object NetworkConfig {
         get() = HttpLoggingInterceptor { message ->
             Log.d("OkHttp", message)
         }.apply {
-            level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
-            } else {
-                HttpLoggingInterceptor.Level.NONE
-            }
+            level = HttpLoggingInterceptor.Level.BODY
         }
 
     private val okHttpClient: OkHttpClient

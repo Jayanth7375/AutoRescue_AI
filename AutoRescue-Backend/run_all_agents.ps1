@@ -208,6 +208,7 @@ if (-not (Start-AutoRescueAgent `
 }
 Write-Host ""
 
+
 # Start FastAPI Gateway
 if (-not (Start-FastApiGateway `
     -Name "FastAPI Gateway :8000" `
@@ -225,14 +226,18 @@ Write-Host ""
 Write-Host "Services:" -ForegroundColor Cyan
 Write-Host "  FastAPI Gateway     : http://127.0.0.1:8000"
 Write-Host "  Swagger UI          : http://127.0.0.1:8000/docs"
-Write-Host "  Diagnostic Agent    : port 8011"
-Write-Host "  Service Agent       : port 8013"
-Write-Host "  Rescue Agent        : port 8015"
-Write-Host "  Orchestrator Agent  : port 8018"
+Write-Host ""
+Write-Host "  Agents (4-Agent Stable Demo Architecture):" -ForegroundColor Cyan
+Write-Host "    Diagnostic Agent    : port 8011"
+Write-Host "    Service Agent       : port 8013"
+Write-Host "    Rescue Agent        : port 8015"
+Write-Host "    Orchestrator Agent  : port 8018"
 
 Write-Host ""
 Write-Host "Next step:" -ForegroundColor Yellow
 Write-Host "  uv run python test_gateway.py"
+Write-Host "  uv run python test_chat.py"
+Write-Host "  uv run python test_multi_agent.py"
 Write-Host ""
 
 # Keep script running

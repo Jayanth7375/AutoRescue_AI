@@ -67,6 +67,7 @@ fun AutoRescueMainApp(
     val isBottomBarVisible = currentRoute in listOf(
         Screen.Home.route,
         Screen.Diagnose.route,
+        Screen.Assistant.route,
         Screen.Rescue.route,
         Screen.Vehicle.route
     )
@@ -126,6 +127,12 @@ fun AutoRescueMainApp(
                 )
             }
 
+            composable(Screen.Assistant.route) {
+                ChatScreen(
+                    diagnosticsViewModel = diagnosticsViewModel
+                )
+            }
+
             composable(Screen.Rescue.route) {
                 RescueScreen(
                     vehicleViewModel = vehicleViewModel,
@@ -157,11 +164,6 @@ fun AutoRescueMainApp(
                 )
             }
 
-            composable(Screen.Chat.route) {
-                ChatScreen(
-                    diagnosticsViewModel = diagnosticsViewModel
-                )
-            }
         }
     }
 }

@@ -37,7 +37,6 @@ data class DeviceLocationState(
 data class ServiceCentresUiState(
     val isLoading: Boolean = false,
     val serviceCentres: List<com.example.model.ServiceCentre> = emptyList(),
-    val errorType: com.example.repository.ServiceCentreErrorType? = null,
     val errorMessage: String? = null,
     val lastFetchedLat: Double? = null,
     val lastFetchedLng: Double? = null
@@ -326,7 +325,6 @@ class VehicleViewModel(
                     _rescueStatus.update {
                         it.copy(location = data.locationName)
                     }
-                    fetchNearbyServiceCentres(context, data.latitude, data.longitude)
                 }
                 is com.example.repository.LocationResult.LocationUnavailable -> {
                     _locationState.update {
@@ -339,7 +337,6 @@ class VehicleViewModel(
                         it.copy(
                             isLoading = false,
                             serviceCentres = emptyList(),
-                            errorType = com.example.repository.ServiceCentreErrorType.GpsUnavailable,
                             errorMessage = "GPS unavailable. Please enable location services on your phone."
                         )
                     }
@@ -359,7 +356,6 @@ class VehicleViewModel(
                         it.copy(
                             isLoading = false,
                             serviceCentres = emptyList(),
-                            errorType = com.example.repository.ServiceCentreErrorType.GpsUnavailable,
                             errorMessage = result.message
                         )
                     }
@@ -384,8 +380,7 @@ class VehicleViewModel(
             it.copy(
                 isLoading = false,
                 serviceCentres = emptyList(),
-                errorType = com.example.repository.ServiceCentreErrorType.PermissionDenied,
-                errorMessage = "Location permission denied. Please grant FINE or COARSE location permission."
+                    errorMessage = "Location permission denied. Please grant FINE or COARSE location permission."
             )
         }
         _rescueStatus.update {
@@ -393,43 +388,6 @@ class VehicleViewModel(
         }
     }
 
-    fun fetchNearbyServiceCentres(context: android.content.Context, lat: Double, lng: Double) {
-        _serviceCentresState.update {
-            it.copy(
-                isLoading = true,
-                errorType = null,
-                errorMessage = null,
-                lastFetchedLat = lat,
-                lastFetchedLng = lng
-            )
-        }
-        viewModelScope.launch {
-            val (issueType, severity) = getActiveIssueContext()
-            val repo = com.example.repository.PlacesServiceRepository(context.applicationContext)
-            when (val result = repo.getNearbyServiceCentres(lat, lng, issueType = issueType, severity = severity)) {
-                is com.example.repository.ServiceCentresResult.Success -> {
-                    _serviceCentresState.update {
-                        it.copy(
-                            isLoading = false,
-                            serviceCentres = result.serviceCentres,
-                            errorType = null,
-                            errorMessage = null
-                        )
-                    }
-                }
-                is com.example.repository.ServiceCentresResult.Error -> {
-                    _serviceCentresState.update {
-                        it.copy(
-                            isLoading = false,
-                            serviceCentres = emptyList(),
-                            errorType = result.errorType,
-                            errorMessage = result.message
-                        )
-                    }
-                }
-            }
-        }
-    }
 
     private fun getActiveIssueContext(): Pair<String, HealthStatus> {
         val diag = _diagnosticState.value.result

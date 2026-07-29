@@ -188,39 +188,10 @@ fun NearbyServiceCentresCard(
                 }
             }
 
-            serviceCentresState.errorMessage != null || serviceCentresState.errorType != null -> {
-                val errorType = serviceCentresState.errorType
-                val errorTitle = when (errorType) {
-                    is com.example.repository.ServiceCentreErrorType.PermissionDenied -> "Location Permission Denied"
-                    is com.example.repository.ServiceCentreErrorType.GpsUnavailable -> "GPS Location Unavailable"
-                    is com.example.repository.ServiceCentreErrorType.PlacesKeyMissing -> "Places API Key Missing"
-                    is com.example.repository.ServiceCentreErrorType.PlacesRequestFailed -> "Places API Request Failed"
-                    is com.example.repository.ServiceCentreErrorType.InvalidPlaceType -> "Invalid Place Type Filter"
-                    is com.example.repository.ServiceCentreErrorType.ZeroResults -> "No Service Centres Found"
-                    is com.example.repository.ServiceCentreErrorType.LocationFailure -> "Location Acquisition Failed"
-                    is com.example.repository.ServiceCentreErrorType.NetworkUnavailable -> "Network Unavailable"
-                    else -> "Unable to Fetch Service Centres"
-                }
-
-                val errorIcon = when (errorType) {
-                    is com.example.repository.ServiceCentreErrorType.PermissionDenied -> Icons.Default.LocationOff
-                    is com.example.repository.ServiceCentreErrorType.GpsUnavailable -> Icons.Default.GpsOff
-                    is com.example.repository.ServiceCentreErrorType.PlacesKeyMissing -> Icons.Default.KeyOff
-                    is com.example.repository.ServiceCentreErrorType.PlacesRequestFailed -> Icons.Default.CloudOff
-                    is com.example.repository.ServiceCentreErrorType.InvalidPlaceType -> Icons.Default.FilterListOff
-                    is com.example.repository.ServiceCentreErrorType.ZeroResults -> Icons.Default.SearchOff
-                    is com.example.repository.ServiceCentreErrorType.LocationFailure -> Icons.Default.LocationDisabled
-                    is com.example.repository.ServiceCentreErrorType.NetworkUnavailable -> Icons.Default.WifiOff
-                    else -> Icons.Default.ErrorOutline
-                }
-
-                val buttonLabel = when (errorType) {
-                    is com.example.repository.ServiceCentreErrorType.PermissionDenied -> "Retry Location Permission"
-                    is com.example.repository.ServiceCentreErrorType.GpsUnavailable -> "Retry Location"
-                    is com.example.repository.ServiceCentreErrorType.PlacesKeyMissing -> "Retry Key Check"
-                    is com.example.repository.ServiceCentreErrorType.NetworkUnavailable -> "Retry Connection"
-                    else -> "Retry Search"
-                }
+            serviceCentresState.errorMessage != null -> {
+                val errorTitle = "Unable to Fetch Service Centres"
+                val errorIcon = Icons.Default.ErrorOutline
+                val buttonLabel = "Run Vehicle Check"
 
                 Card(
                     shape = RoundedCornerShape(18.dp),

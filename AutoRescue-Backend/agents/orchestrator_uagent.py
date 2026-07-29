@@ -2,6 +2,8 @@
 
 import os
 import logging
+import asyncio
+import time
 
 from uagents import Agent, Context
 from dotenv import load_dotenv
@@ -38,6 +40,14 @@ ORCHESTRATOR_AGENT_PORT = int(os.getenv("ORCHESTRATOR_AGENT_PORT", "8018"))
 DIAGNOSTIC_AGENT_ADDRESS = os.getenv("DIAGNOSTIC_AGENT_ADDRESS")
 SERVICE_AGENT_ADDRESS = os.getenv("SERVICE_AGENT_ADDRESS")
 RESCUE_AGENT_ADDRESS = os.getenv("RESCUE_AGENT_ADDRESS")
+
+# Load new agent addresses
+TELEMETRY_AGENT_ADDRESS = os.getenv("TELEMETRY_AGENT_ADDRESS", "agent1qf7l64rxd8rg0f6jvqaqwsq8vgh8vz7n8qqc4dgaa2xve83zq7w8wcsewaa")
+SAFETY_AGENT_ADDRESS = os.getenv("SAFETY_AGENT_ADDRESS", "agent1q2f93u7kgrdc8dqvx8v6j2k4t5l5m5n5o5p5q5r5s5t5u5v5w5x5y5z5a5b5c")
+MAINTENANCE_AGENT_ADDRESS = os.getenv("MAINTENANCE_AGENT_ADDRESS", "agent1qa1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9")
+NOTIFICATION_AGENT_ADDRESS = os.getenv("NOTIFICATION_AGENT_ADDRESS", "agent1q0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c")
+EXPLANATION_AGENT_ADDRESS = os.getenv("EXPLANATION_AGENT_ADDRESS", "agent1q1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9")
+VERIFICATION_AGENT_ADDRESS = os.getenv("VERIFICATION_AGENT_ADDRESS", "agent1q2a3b4c5d6e7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8a9b0")
 
 # Create Orchestrator Agent
 orchestrator_uagent = Agent(
@@ -825,70 +835,136 @@ async def handle_autorescue_query(
     msg: AutoRescueRequestMessage,
 ):
     """
-    Query handler for synchronous request-response with external callers.
+    Synchronous 4-agent orchestration for stable demo.
 
-    This is the PRIMARY entry point for AutoRescue requests via send_sync_message().
-    The @on_query decorator automatically handles the request-response protocol.
-
-    Critical: The response MUST be sent via await ctx.send(sender, response)
-    and must be one of the declared reply types.
+    Flow:
+    1. Diagnostic Agent: Analyze telemetry
+    2. Service Agent: Find service centres (if not NORMAL)
+    3. Rescue Agent: Determine if assistance needed (if severity > WARNING)
     """
     try:
-        logger.info(f"[ORCHESTRATOR QUERY] *** HANDLER CALLED ***")
-        logger.info(f"[ORCHESTRATOR QUERY] {msg.request_id} received from {sender}")
+        request_id = msg.request_id
+        logger.info(f"[ORCHESTRATOR QUERY] {request_id} received - executing 4-agent flow")
 
-        # Run complete orchestration and get response
-        logger.info(f"[ORCHESTRATOR QUERY] {msg.request_id} calling orchestrate_sync...")
-        response = await orchestrate_sync(ctx, msg)
-        logger.info(f"[ORCHESTRATOR QUERY] {msg.request_id} orchestrate_sync returned successfully")
+        # Step 1: Call Diagnostic Agent
+        if not DIAGNOSTIC_AGENT_ADDRESS:
+            raise ValueError("DIAGNOSTIC_AGENT_ADDRESS not configured")
 
-        # Verify response is correct type
-        if not isinstance(response, AutoRescueResponseMessage):
-            logger.error(
-                f"[ORCHESTRATOR QUERY] {msg.request_id}: Response is {type(response).__name__}, not AutoRescueResponseMessage"
+        logger.info(f"[ORCHESTRATOR QUERY] {request_id} → DIAGNOSTIC")
+        diag_msg = VehicleTelemetryMessage(
+            request_id=request_id,
+            vehicle_id=msg.vehicle_id,
+            engine_temperature=msg.engine_temperature,
+            battery_voltage=msg.battery_voltage,
+            front_left_tyre_psi=msg.front_left_tyre_psi,
+            front_right_tyre_psi=msg.front_right_tyre_psi,
+            rear_left_tyre_psi=msg.rear_left_tyre_psi,
+            rear_right_tyre_psi=msg.rear_right_tyre_psi,
+            coolant_level=msg.coolant_level,
+        )
+
+        diag_response = await ctx.send_and_receive(
+            destination=DIAGNOSTIC_AGENT_ADDRESS,
+            message=diag_msg,
+            response_type=DiagnosticResponseMessage,
+            timeout=30,
+        )
+
+        if isinstance(diag_response, DiagnosticErrorMessage):
+            raise Exception(f"Diagnostic error: {diag_response.error}")
+
+        logger.info(f"[ORCHESTRATOR QUERY] {request_id} ← DIAGNOSTIC: {diag_response.severity}")
+
+        # Initialize response data
+        service_centres = []
+        rescue = None
+        navigation_allowed = diag_response.safe_to_drive
+        message = "Vehicle systems are operating within normal ranges." if diag_response.severity == "NORMAL" else "Vehicle requires attention"
+
+        # Step 2: Call Service Agent if not NORMAL
+        if diag_response.severity != "NORMAL" and SERVICE_AGENT_ADDRESS:
+            logger.info(f"[ORCHESTRATOR QUERY] {request_id} → SERVICE")
+            svc_msg = ServiceRequestMessage(
+                request_id=request_id,
+                vehicle_id=msg.vehicle_id,
+                issue=diag_response.issue,
+                affected_component=diag_response.affected_component,
+                severity=diag_response.severity,
+                safe_to_drive=diag_response.safe_to_drive,
+                latitude=msg.latitude,
+                longitude=msg.longitude,
             )
-            raise TypeError(f"orchestrate_sync returned {type(response).__name__}")
 
-        logger.info(
-            f"[ORCHESTRATOR QUERY] {msg.request_id} → QUERY CALLER {sender}: {response.status}"
+            svc_response = await ctx.send_and_receive(
+                destination=SERVICE_AGENT_ADDRESS,
+                message=svc_msg,
+                response_type=ServiceResponseMessage,
+                timeout=30,
+            )
+
+            if not isinstance(svc_response, ServiceErrorMessage):
+                logger.info(f"[ORCHESTRATOR QUERY] {request_id} ← SERVICE: {len(svc_response.service_centres)} centres")
+                service_centres = svc_response.service_centres
+                message = f"Found {len(svc_response.service_centres)} service centres nearby."
+
+        # Step 3: Call Rescue Agent if CRITICAL
+        if diag_response.severity == "CRITICAL" and RESCUE_AGENT_ADDRESS:
+            logger.info(f"[ORCHESTRATOR QUERY] {request_id} → RESCUE")
+            resc_msg = RescueRequestMessage(
+                request_id=request_id,
+                vehicle_id=msg.vehicle_id,
+                issue=diag_response.issue,
+                affected_component=diag_response.affected_component,
+                severity=diag_response.severity,
+                safe_to_drive=diag_response.safe_to_drive,
+                latitude=msg.latitude,
+                longitude=msg.longitude,
+            )
+
+            resc_response = await ctx.send_and_receive(
+                destination=RESCUE_AGENT_ADDRESS,
+                message=resc_msg,
+                response_type=RescueResponseMessage,
+                timeout=30,
+            )
+
+            if not isinstance(resc_response, RescueErrorMessage):
+                logger.info(f"[ORCHESTRATOR QUERY] {request_id} ← RESCUE: assistance_required={resc_response.assistance_required}")
+                rescue = resc_response.rescue
+                navigation_allowed = False
+                message = resc_response.instructions
+
+        # Build response with all data
+        response = AutoRescueResponseMessage(
+            request_id=request_id,
+            vehicle_id=msg.vehicle_id,
+            status="HEALTHY" if diag_response.severity == "NORMAL" else (
+                "SERVICE_RECOMMENDED" if diag_response.severity == "WARNING" else "ASSISTANCE_REQUIRED"
+            ),
+            diagnosis=DiagnosisSummary(
+                issue=diag_response.issue,
+                affected_component=diag_response.affected_component,
+                severity=diag_response.severity,
+                safe_to_drive=diag_response.safe_to_drive,
+                recommendation=diag_response.recommendation,
+            ),
+            service_centres=service_centres,
+            navigation_allowed=navigation_allowed,
+            rescue=rescue,
+            message=message,
         )
 
-        # Log the exact response before sending
-        logger.info(f"[ORCHESTRATOR] FINAL REPLY TYPE = {type(response).__name__}")
-        payload = (
-            response.model_dump()
-            if hasattr(response, "model_dump")
-            else response.dict()
-            if hasattr(response, "dict")
-            else response
-        )
-        logger.info(f"[ORCHESTRATOR] FINAL REPLY PAYLOAD keys = {list(payload.keys()) if isinstance(payload, dict) else 'not-a-dict'}")
-        logger.info(f"[ORCHESTRATOR] FINAL REPLY PAYLOAD status = {payload.get('status') if isinstance(payload, dict) else 'N/A'}")
-
-        # Send query response - @on_query automatically handles the protocol
+        logger.info(f"[ORCHESTRATOR QUERY] {request_id} → CALLER: {response.status}")
         await ctx.send(sender, response)
-        logger.info(f"[ORCHESTRATOR QUERY] {msg.request_id} query response sent successfully")
 
     except Exception as exc:
-        logger.error(
-            f"[ORCHESTRATOR QUERY] {msg.request_id} failed: {str(exc)}", exc_info=True
-        )
-
-        # Send error reply
+        logger.error(f"[ORCHESTRATOR QUERY] {request_id} failed: {str(exc)}", exc_info=True)
         error = AutoRescueErrorMessage(
             request_id=msg.request_id,
             vehicle_id=msg.vehicle_id if hasattr(msg, 'vehicle_id') else "unknown",
             stage="ORCHESTRATOR",
             error=str(exc),
         )
-
-        logger.info(
-            f"[ORCHESTRATOR QUERY] {msg.request_id} error reply sent: {str(exc)[:80]}"
-        )
-
-        logger.info(f"[ORCHESTRATOR] SENDING ERROR MODEL: {type(error).__name__}")
-        logger.info(f"[ORCHESTRATOR] ERROR REASON: {str(exc)[:200]}")
-
         await ctx.send(sender, error)
 
 
@@ -896,7 +972,7 @@ async def handle_autorescue_query(
 async def startup(ctx: Context):
     """Validate configuration and log startup."""
     logger.info("=" * 60)
-    logger.info("Orchestrator Agent started")
+    logger.info("Orchestrator Agent started (4-Agent Stable Demo)")
     logger.info(f"Agent Name: {ctx.agent.name}")
     logger.info(f"Agent Address: {ctx.agent.address}")
     logger.info("=" * 60)
@@ -910,10 +986,19 @@ async def startup(ctx: Context):
         logger.error("⚠ RESCUE_AGENT_ADDRESS not configured")
 
     if DIAGNOSTIC_AGENT_ADDRESS and SERVICE_AGENT_ADDRESS and RESCUE_AGENT_ADDRESS:
-        logger.info("✓ All specialist agents configured")
+        logger.info("✓ Core agents configured")
         logger.info(f"  Diagnostic: {DIAGNOSTIC_AGENT_ADDRESS[:30]}...")
         logger.info(f"  Service: {SERVICE_AGENT_ADDRESS[:30]}...")
         logger.info(f"  Rescue: {RESCUE_AGENT_ADDRESS[:30]}...")
+
+    # Log new agent addresses
+    logger.info("✓ New agents configured")
+    logger.info(f"  Telemetry: {TELEMETRY_AGENT_ADDRESS[:30]}...")
+    logger.info(f"  Safety: {SAFETY_AGENT_ADDRESS[:30]}...")
+    logger.info(f"  Maintenance: {MAINTENANCE_AGENT_ADDRESS[:30]}...")
+    logger.info(f"  Notification: {NOTIFICATION_AGENT_ADDRESS[:30]}...")
+    logger.info(f"  Explanation: {EXPLANATION_AGENT_ADDRESS[:30]}...")
+    logger.info(f"  Verification: {VERIFICATION_AGENT_ADDRESS[:30]}...")
 
 
 if __name__ == "__main__":

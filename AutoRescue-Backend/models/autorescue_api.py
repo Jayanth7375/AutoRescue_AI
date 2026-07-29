@@ -78,3 +78,87 @@ class AutoRescueErrorResponse(BaseModel):
     detail: str
     request_id: str | None = None
     stage: str | None = None
+
+
+# Extended 10-Agent Response Models (for API)
+
+class TelemetryValidationApiResponse(BaseModel):
+    """Telemetry validation result."""
+
+    valid: bool
+    issues: list[str] = []
+    normalized_telemetry: dict = {}
+
+
+class SafetyApiResponse(BaseModel):
+    """Safety determination result."""
+
+    safe_to_drive: bool
+    navigation_allowed: bool
+    tow_required: bool
+    risk_level: str
+
+
+class MaintenanceApiResponse(BaseModel):
+    """Maintenance recommendation."""
+
+    component: str
+    action: str
+    urgency: str
+    reason: str = ""
+
+
+class NotificationApiResponse(BaseModel):
+    """User notification alert."""
+
+    type: str
+    severity: str
+    title: str
+    message: str
+    recommendation: str = ""
+    timestamp: str = ""
+
+
+class ExplanationApiResponse(BaseModel):
+    """AI explanation of vehicle state."""
+
+    summary: str
+    driver_guidance: str
+
+
+class VerificationApiResponse(BaseModel):
+    """Verification/consistency check result."""
+
+    verified: bool
+    issues: list[str] = []
+    corrections: list[str] = []
+
+
+class AgentTraceEntryApiResponse(BaseModel):
+    """Agent execution trace entry."""
+
+    agent: str
+    status: str  # COMPLETED, SKIPPED, FALLBACK, FAILED
+    summary: str
+
+
+class AutoRescueApiResponseExtended(BaseModel):
+    """Extended unified HTTP response from AutoRescue gateway with full 10-agent results."""
+
+    request_id: str
+    vehicle_id: str
+    status: str
+    diagnosis: DiagnosisApiResponse
+    service_centres: list[ServiceCentreApiResponse]
+    navigation_allowed: bool
+    rescue: RescueApiResponse | None = None
+    message: str
+
+    # New optional 10-agent fields
+    telemetry_validation: TelemetryValidationApiResponse | None = None
+    safety: SafetyApiResponse | None = None
+    maintenance: MaintenanceApiResponse | None = None
+    notifications: list[NotificationApiResponse] = []
+    explanation: ExplanationApiResponse | None = None
+    verification: VerificationApiResponse | None = None
+    agent_trace: list[AgentTraceEntryApiResponse] = []

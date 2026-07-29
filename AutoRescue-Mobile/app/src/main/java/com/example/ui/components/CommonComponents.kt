@@ -64,7 +64,7 @@ fun AutoRescueHeader(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = CharcoalText,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -89,7 +89,7 @@ fun AutoRescueHeader(
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
-                        tint = CharcoalText
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
             }
@@ -108,13 +108,13 @@ fun AutoRescueHeader(
                 Icon(
                     imageVector = Icons.Filled.Person,
                     contentDescription = "Profile",
-                    tint = CardSurfaceLight,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = BackgroundLight
+            containerColor = MaterialTheme.colorScheme.background
         ),
         modifier = modifier
     )
@@ -202,7 +202,7 @@ fun AutoRescueBottomBar(
     onNavigateToRoute: (String) -> Unit
 ) {
     NavigationBar(
-        containerColor = CardSurfaceLight,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp,
         modifier = Modifier
             .windowInsetsPadding(WindowInsets.navigationBars)
@@ -211,7 +211,7 @@ fun AutoRescueBottomBar(
         bottomNavScreens.forEach { screen ->
             val isSelected = currentRoute == screen.route
             val animatedIconColor by animateColorAsState(
-                targetValue = if (isSelected) HealthyGreen else CharcoalMuted,
+                targetValue = if (isSelected) HealthyGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 label = "iconColor"
             )
 
@@ -231,7 +231,7 @@ fun AutoRescueBottomBar(
                         text = screen.title,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) PrimaryDark else CharcoalMuted
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

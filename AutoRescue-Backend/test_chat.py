@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 GATEWAY_URL = "http://127.0.0.1:8000"
 
+FALLBACK_MESSAGE = "temporarily unavailable"
+
 
 async def test_chat(name: str, message: str, context: dict) -> bool:
     """Test a single chat scenario."""
@@ -42,13 +44,18 @@ async def test_chat(name: str, message: str, context: dict) -> bool:
             if actions:
                 logger.info(f"Suggested Actions: {actions}")
 
-            # Verify response has required fields
-            if reply:
-                logger.info("✓ Chat response successful")
-                return True
-            else:
+            # Verify response has required fields and is not a fallback
+            if not reply:
                 logger.error("✗ Reply field is empty")
                 return False
+
+            if FALLBACK_MESSAGE.lower() in reply.lower():
+                logger.error(f"✗ Received fallback response (chatbot unavailable)")
+                logger.error(f"  This indicates the backend chatbot failed to generate a proper response")
+                return False
+
+            logger.info("✓ Chat response successful (genuine assistant response)")
+            return True
         else:
             logger.error(f"✗ Error: {response.text[:200]}")
             return False

@@ -189,3 +189,87 @@ class AutoRescueErrorMessage(Model):
     vehicle_id: str | None
     stage: str
     error: str
+
+
+# Extended 10-Agent Response Models
+
+class TelemetryValidationMessage(Model):
+    """Telemetry validation result."""
+
+    valid: bool
+    issues: list[str] = []
+    normalized_telemetry: dict = {}
+
+
+class SafetyMessage(Model):
+    """Safety determination result."""
+
+    safe_to_drive: bool
+    navigation_allowed: bool
+    tow_required: bool
+    risk_level: str
+
+
+class MaintenanceMessage(Model):
+    """Maintenance recommendation."""
+
+    component: str
+    action: str
+    urgency: str
+    reason: str = ""
+
+
+class NotificationMessage(Model):
+    """User notification alert."""
+
+    type: str
+    severity: str
+    title: str
+    message: str
+    recommendation: str = ""
+    timestamp: str = ""
+
+
+class ExplanationMessage(Model):
+    """AI explanation of vehicle state."""
+
+    summary: str
+    driver_guidance: str
+
+
+class VerificationMessage(Model):
+    """Verification/consistency check result."""
+
+    verified: bool
+    issues: list[str] = []
+    corrections: list[str] = []
+
+
+class AgentTraceEntry(Model):
+    """Agent execution trace entry."""
+
+    agent: str
+    status: str  # COMPLETED, SKIPPED, FALLBACK, FAILED
+    summary: str
+
+
+class AutoRescueResponseMessageExtended(Model):
+    """Extended unified response from Orchestrator with full 10-agent results."""
+
+    request_id: str
+    vehicle_id: str
+    status: str
+    diagnosis: DiagnosisSummary
+    service_centres: list[ServiceCentreMessage]
+    navigation_allowed: bool
+    rescue: RescueSummary | None = None
+    message: str
+
+    # New optional 10-agent fields
+    telemetry_validation: TelemetryValidationMessage | None = None
+    safety: SafetyMessage | None = None
+    maintenance: MaintenanceMessage | None = None
+    notifications: list[NotificationMessage] = []
+    explanation: ExplanationMessage | None = None
+    verification: VerificationMessage | None = None
+    agent_trace: list[AgentTraceEntry] = []

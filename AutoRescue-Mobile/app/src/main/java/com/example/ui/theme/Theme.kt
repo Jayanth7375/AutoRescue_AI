@@ -7,40 +7,49 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryDark,
-    onPrimary = CardSurfaceLight,
-    primaryContainer = CharcoalSurface,
-    onPrimaryContainer = CardSurfaceLight,
+    primary = PrimaryAccent,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE0F7F0),
+    onPrimaryContainer = PrimaryAccentLight,
     secondary = SecondarySlate,
-    onSecondary = CardSurfaceLight,
+    onSecondary = Color(0xFFFFFFFF),
+    tertiary = WarningAmber,
     background = BackgroundLight,
     onBackground = CharcoalText,
-    surface = CardSurfaceLight,
+    surface = SurfaceLight,
     onSurface = CharcoalText,
-    surfaceVariant = BackgroundLight,
+    surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = CharcoalMuted,
-    outline = CardBorderLight
+    outline = CardBorderLight,
+    outlineVariant = Color(0xFFD0D5DD),
+    error = CriticalRed,
+    onError = Color(0xFFFFFFFF)
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = CardSurfaceLight,
+    primary = PrimaryAccentDark,
     onPrimary = CharcoalDark,
-    primaryContainer = CharcoalSurface,
-    onPrimaryContainer = CardSurfaceLight,
-    secondary = SecondarySlate,
-    onSecondary = CardSurfaceLight,
+    primaryContainer = Color(0xFF0F3A2A),
+    onPrimaryContainer = PrimaryAccentDark,
+    secondary = TextSecondaryDark,
+    onSecondary = CharcoalDark,
+    tertiary = WarningAmberDarkBg,
     background = CharcoalDark,
-    onBackground = BackgroundLight,
+    onBackground = TextLightDark,
     surface = CharcoalSurface,
-    onSurface = BackgroundLight,
-    surfaceVariant = CharcoalDark,
-    onSurfaceVariant = CharcoalMuted,
-    outline = CharcoalSurface
+    onSurface = TextLightDark,
+    surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = TextSecondaryDark,
+    outline = OutlineDark,
+    outlineVariant = Color(0xFF464F59),
+    error = CriticalRed,
+    onError = Color(0xFFFFFFFF)
 )
 
 @Composable

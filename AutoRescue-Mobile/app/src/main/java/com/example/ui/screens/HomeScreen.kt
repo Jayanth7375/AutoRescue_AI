@@ -33,12 +33,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.model.HealthStatus
+import com.example.model.ServiceCentre
+import com.example.network.ServiceCentreDto
 import com.example.ui.components.AutoRescueHeader
 import com.example.ui.components.HealthProgressBar
 import com.example.ui.components.NearbyServiceCentresCard
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
 import com.example.viewmodel.DiagnosticsViewModel
+import com.example.viewmodel.ServiceCentresUiState
 import com.example.viewmodel.VehicleViewModel
 
 @Composable
@@ -54,7 +57,6 @@ fun HomeScreen(
     val components by vehicleViewModel.componentHealthList.collectAsState()
     val notifications by vehicleViewModel.notifications.collectAsState()
     val locationState by vehicleViewModel.locationState.collectAsState()
-    val serviceCentresState by vehicleViewModel.serviceCentresState.collectAsState()
     val diagnosticState by diagnosticsViewModel.diagnosticState.collectAsState()
 
     val hasUnreadNotifs = notifications.any { !it.isRead }
@@ -62,6 +64,33 @@ fun HomeScreen(
     val backendResponse = diagnosticState.backendResponse
     val latestStatus = backendResponse?.status ?: "UNKNOWN"
     val latestDiagnosis = backendResponse?.diagnosis
+
+    // Convert backend service centres to UI model
+    val serviceCentresState = backendResponse?.let { response ->
+        val converted = response.serviceCentres.map { dto ->
+            ServiceCentre(
+                id = dto.placeId,
+                name = dto.name,
+                address = dto.address,
+                latitude = dto.latitude,
+                longitude = dto.longitude,
+                rating = dto.rating,
+                reviewCount = dto.reviewCount,
+                isOpen = dto.isOpen,
+                distanceKm = dto.distanceKm,
+                priorityScore = dto.priorityScore,
+                matchReason = dto.recommendationReason,
+                isRecommended = true
+            )
+        }
+        ServiceCentresUiState(
+            isLoading = false,
+            serviceCentres = converted,
+            errorMessage = if (converted.isEmpty() && latestStatus != "HEALTHY") "No service centres found" else null,
+            lastFetchedLat = response.diagnosis.safeToDrive.let { 0.0 }, // placeholder
+            lastFetchedLng = 0.0
+        )
+    } ?: ServiceCentresUiState()
 
     Scaffold(
         topBar = {
@@ -72,7 +101,7 @@ fun HomeScreen(
                 onProfileClick = onNavigateToProfile
             )
         },
-        containerColor = BackgroundLight
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -88,7 +117,7 @@ fun HomeScreen(
                     Text(
                         text = "Good Morning",
                         style = MaterialTheme.typography.displayMedium,
-                        color = CharcoalText,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -112,7 +141,7 @@ fun HomeScreen(
                         Text(
                             text = statusMessage,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = CharcoalMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -136,7 +165,7 @@ fun HomeScreen(
                         ) {
                             Column {
                                 Surface(
-                                    color = Color.White.copy(alpha = 0.12f),
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
@@ -151,13 +180,13 @@ fun HomeScreen(
                                 Text(
                                     text = vehicleInfo.name,
                                     style = MaterialTheme.typography.titleLarge,
-                                    color = CardSurfaceLight,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = vehicleInfo.registrationNumber,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = Color.White.copy(alpha = 0.7f),
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -229,7 +258,7 @@ fun HomeScreen(
                     Text(
                         text = "Quick Actions",
                         style = MaterialTheme.typography.titleMedium,
-                        color = CharcoalText,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -315,14 +344,14 @@ fun HomeScreen(
                         Text(
                             text = "Vehicle Status",
                             style = MaterialTheme.typography.titleMedium,
-                            color = CharcoalText,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
                             text = "4 System Sensors",
                             fontSize = 12.sp,
-                            color = CharcoalMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -362,7 +391,7 @@ fun HomeScreen(
                                             text = comp.name,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 15.sp,
-                                            color = CharcoalText
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
 
@@ -393,79 +422,92 @@ fun HomeScreen(
                         onNavigateToRescue()
                     },
                     onRefreshClick = {
-                        val lat = locationState.latitude
-                        val lng = locationState.longitude
-                        if (lat != null && lng != null) {
-                            vehicleViewModel.fetchNearbyServiceCentres(context, lat, lng)
-                        } else {
-                            vehicleViewModel.fetchLocation(context)
-                        }
+                        diagnosticsViewModel.runVehicleCheck()
                     }
                 )
             }
 
             // Recent Alert Card
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Recent Alert",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = CharcoalText,
-                        fontWeight = FontWeight.Bold
-                    )
+                val latestAlert = notifications.firstOrNull { !it.isRead } ?: notifications.firstOrNull()
+                if (latestAlert != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Recent Alert",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = WarningAmberBg),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, WarningAmber.copy(alpha = 0.4f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNavigateToNotifications() }
-                            .testTag("recent_alert_card")
-                    ) {
-                        Row(
+                        val bgColor = when (latestAlert.severity) {
+                            HealthStatus.CRITICAL -> CriticalRedBg
+                            HealthStatus.WARNING -> WarningAmberBg
+                            else -> MaterialTheme.colorScheme.surface
+                        }
+                        val textColor = when (latestAlert.severity) {
+                            HealthStatus.CRITICAL -> CriticalRedDark
+                            HealthStatus.WARNING -> WarningAmberDark
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
+                        val borderColor = when (latestAlert.severity) {
+                            HealthStatus.CRITICAL -> CriticalRed.copy(alpha = 0.4f)
+                            HealthStatus.WARNING -> WarningAmber.copy(alpha = 0.4f)
+                            else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        }
+
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = bgColor),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                .clickable { onNavigateToNotifications() }
+                                .testTag("recent_alert_card")
                         ) {
-                            Box(
+                            Row(
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(WarningAmber.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(textColor.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Alert",
+                                        tint = textColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = latestAlert.title,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = textColor
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = latestAlert.timestamp,
+                                        fontSize = 12.sp,
+                                        color = textColor.copy(alpha = 0.8f)
+                                    )
+                                }
+
                                 Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Alert",
-                                    tint = WarningAmberDark,
-                                    modifier = Modifier.size(24.dp)
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "View",
+                                    tint = textColor,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Front-left tyre pressure is low",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = WarningAmberDark
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Today, 10:32 AM",
-                                    fontSize = 12.sp,
-                                    color = WarningAmberDark.copy(alpha = 0.8f)
-                                )
-                            }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "View",
-                                tint = WarningAmberDark,
-                                modifier = Modifier.size(18.dp)
-                            )
                         }
                     }
                 }

@@ -2,10 +2,12 @@ package com.example.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MedicalServices
@@ -20,6 +22,7 @@ sealed class Screen(
     object Splash : Screen("splash", "Splash")
     object Home : Screen("home", "Home", Icons.Filled.Home, Icons.Outlined.Home)
     object Diagnose : Screen("diagnose", "Diagnose", Icons.Filled.Build, Icons.Outlined.Build)
+    object Assistant : Screen("assistant", "Assistant", Icons.Filled.Chat, Icons.Outlined.Chat)
     object Rescue : Screen("rescue", "Rescue", Icons.Filled.MedicalServices, Icons.Outlined.MedicalServices)
     object Vehicle : Screen("vehicle", "Vehicle", Icons.Filled.DirectionsCar, Icons.Outlined.DirectionsCar)
     object Notifications : Screen("notifications", "Notifications")
@@ -30,6 +33,7 @@ sealed class Screen(
 val bottomNavScreens = listOf(
     Screen.Home,
     Screen.Diagnose,
+    Screen.Assistant,
     Screen.Rescue,
     Screen.Vehicle
 )

@@ -39,7 +39,7 @@ private fun TelemetryRow(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(BackgroundLight)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -47,13 +47,13 @@ private fun TelemetryRow(label: String, value: String) {
         Text(
             text = label,
             fontSize = 12.sp,
-            color = CharcoalMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
         Text(
             text = value,
             fontSize = 13.sp,
-            color = CharcoalText,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold
         )
     }
@@ -74,13 +74,13 @@ fun DiagnoseScreen(
     Scaffold(
         topBar = {
             AutoRescueHeader(
-                title = "Vehicle Diagnostics — DEBUG: DiagnoseScreen Active",
+                title = "Vehicle Diagnostics",
                 hasUnreadNotifications = notifications.any { !it.isRead },
                 onNotificationClick = onNavigateToNotifications,
                 onProfileClick = onNavigateToProfile
             )
         },
-        containerColor = BackgroundLight
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -90,15 +90,6 @@ fun DiagnoseScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp)
         ) {
-            // Debug label
-            item {
-                Text(
-                    text = "✓ This is DiagnoseScreen",
-                    fontSize = 10.sp,
-                    color = HealthyGreen,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
 
             // Header Description
             item {
@@ -131,16 +122,16 @@ fun DiagnoseScreen(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Real-Time Health Metrics",
+                                text = "Vehicle Health Metrics",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = CardSurfaceLight,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "OBD-II live telemetry from 18 vehicle sensors.",
+                                text = "Simulated diagnostic telemetry",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                             )
                         }
                     }
@@ -151,8 +142,8 @@ fun DiagnoseScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardSurfaceLight),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -162,14 +153,14 @@ fun DiagnoseScreen(
                         Text(
                             text = "Vehicle Telemetry",
                             style = MaterialTheme.typography.titleMedium,
-                            color = CharcoalText,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "Demo telemetry (real OBD-II not integrated)",
+                            text = "Simulated diagnostic telemetry",
                             fontSize = 11.sp,
-                            color = CharcoalMuted,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                         )
 
@@ -187,7 +178,7 @@ fun DiagnoseScreen(
                             Text(
                                 text = "No telemetry available. Tap Run Vehicle Check.",
                                 fontSize = 12.sp,
-                                color = CharcoalMuted
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -452,15 +443,15 @@ fun DiagnoseScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("Engine Temp: ${String.format(java.util.Locale.US, "%.1f", telem.engineTemperatureC)}°C", fontSize = 11.sp, color = CardSurfaceLight)
-                                            Text("Battery: ${String.format(java.util.Locale.US, "%.2f", telem.batteryVoltageV)}V", fontSize = 11.sp, color = CardSurfaceLight)
+                                            Text("Engine Temp: ${String.format(java.util.Locale.US, "%.1f", telem.engineTemperatureC)}°C", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary)
+                                            Text("Battery: ${String.format(java.util.Locale.US, "%.2f", telem.batteryVoltageV)}V", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary)
                                         }
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("Tyre PSI: ${String.format(java.util.Locale.US, "%.1f", telem.tyrePressurePsi)} PSI", fontSize = 11.sp, color = CardSurfaceLight)
-                                            Text("Coolant: ${telem.coolantLevelPercent.toInt()}%", fontSize = 11.sp, color = CardSurfaceLight)
+                                            Text("Tyre PSI: ${String.format(java.util.Locale.US, "%.1f", telem.tyrePressurePsi)} PSI", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary)
+                                            Text("Coolant: ${telem.coolantLevelPercent.toInt()}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimary)
                                         }
                                     }
                                 }
@@ -468,7 +459,7 @@ fun DiagnoseScreen(
 
                             // Result Item 6: Recommendation
                             Surface(
-                                color = BackgroundLight,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Column(
@@ -479,12 +470,12 @@ fun DiagnoseScreen(
                                         text = "Recommendation:",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
-                                        color = PrimaryDark
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
                                         text = result.recommendation,
                                         fontSize = 13.sp,
-                                        color = CharcoalText
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }

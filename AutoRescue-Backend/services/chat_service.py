@@ -72,7 +72,7 @@ async def chat_with_autorescue(request: ChatRequest) -> ChatResponse:
         # Extract API key from environment
         groq_api_key = os.getenv("GROQ_API_KEY")
         if not groq_api_key:
-            logger.warning("GROQ_API_KEY not configured, returning fallback response")
+            logger.error("[CHAT] GROQ_API_KEY not configured - cannot initialize chatbot")
             return ChatResponse(
                 reply="AutoRescue Assistant is temporarily unavailable. Your vehicle diagnosis is still available on the Diagnose screen."
             )
@@ -124,7 +124,7 @@ async def chat_with_autorescue(request: ChatRequest) -> ChatResponse:
         return ChatResponse(reply=reply, suggested_actions=suggested_actions)
 
     except Exception as e:
-        logger.error(f"[CHAT] Error: {str(e)}", exc_info=True)
+        logger.exception(f"[CHAT] Chatbot generation failed - Exception: {type(e).__name__}: {str(e)}")
         return ChatResponse(
             reply="AutoRescue Assistant is temporarily unavailable. Your vehicle diagnosis is still available on the Diagnose screen."
         )
