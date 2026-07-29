@@ -16,12 +16,24 @@ from agents.messages import (
     TelemetryValidationMessage,
     SafetyRequest,
     SafetyMessage,
+    MaintenanceRequest,
+    MaintenanceMessage,
+    NotificationRequest,
+    NotificationMessage,
+    ExplanationRequest,
+    ExplanationMessage,
+    VerificationRequest,
+    VerificationMessage,
     DiagnosisSummary,
 )
 
 # Get addresses from .env
 TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS")
 SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS")
+MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
+NOTIFICATION_ADDR = os.getenv("NOTIFICATION_AGENT_ADDRESS")
+EXPLANATION_ADDR = os.getenv("EXPLANATION_AGENT_ADDRESS")
+VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS")
 
 print("\n" + "=" * 70)
 print("Agent Message Smoke Test (Async)")
@@ -132,6 +144,216 @@ async def test_safety():
         traceback.print_exc()
         return False
 
+async def test_maintenance():
+    """Test Maintenance agent directly (async)."""
+    print("\n[TEST] Maintenance Agent")
+    print("-" * 70)
+
+    if not MAINTENANCE_ADDR:
+        print("✗ SKIP - MAINTENANCE_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        diagnosis = DiagnosisSummary(
+            issue="Low tyre pressure",
+            affected_component="tyre",
+            severity="WARNING",
+            safe_to_drive=True,
+            recommendation="Check tyre pressure",
+        )
+
+        req = MaintenanceRequest(
+            request_id="test-003",
+            vehicle_id="TEST-VEH",
+            diagnosis=diagnosis,
+        )
+
+        print(f"  Destination: {MAINTENANCE_ADDR[:40]}...")
+        print(f"  Request model: MaintenanceRequest (severity=WARNING)")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=MAINTENANCE_ADDR,
+            message=req,
+            response_type=MaintenanceMessage,
+            timeout=5,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [1]")
+            resp = resp[1]
+
+        print(f"  Component: {resp.component}")
+        print(f"  Urgency: {resp.urgency}")
+        print(f"  Action: {resp.action[:50]}...")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def test_notification():
+    """Test Notification agent directly (async)."""
+    print("\n[TEST] Notification Agent")
+    print("-" * 70)
+
+    if not NOTIFICATION_ADDR:
+        print("✗ SKIP - NOTIFICATION_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        diagnosis = DiagnosisSummary(
+            issue="Low tyre pressure",
+            affected_component="tyre",
+            severity="WARNING",
+            safe_to_drive=True,
+            recommendation="Check tyre pressure",
+        )
+
+        req = NotificationRequest(
+            request_id="test-004",
+            vehicle_id="TEST-VEH",
+            diagnosis=diagnosis,
+        )
+
+        print(f"  Destination: {NOTIFICATION_ADDR[:40]}...")
+        print(f"  Request model: NotificationRequest (severity=WARNING)")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=NOTIFICATION_ADDR,
+            message=req,
+            response_type=NotificationMessage,
+            timeout=5,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [1]")
+            resp = resp[1]
+
+        print(f"  Type: {resp.type}")
+        print(f"  Severity: {resp.severity}")
+        print(f"  Title: {resp.title}")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def test_explanation():
+    """Test Explanation agent directly (async)."""
+    print("\n[TEST] Explanation Agent")
+    print("-" * 70)
+
+    if not EXPLANATION_ADDR:
+        print("✗ SKIP - EXPLANATION_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        diagnosis = DiagnosisSummary(
+            issue="Low tyre pressure",
+            affected_component="tyre",
+            severity="WARNING",
+            safe_to_drive=True,
+            recommendation="Check tyre pressure",
+        )
+
+        req = ExplanationRequest(
+            request_id="test-005",
+            vehicle_id="TEST-VEH",
+            diagnosis=diagnosis,
+        )
+
+        print(f"  Destination: {EXPLANATION_ADDR[:40]}...")
+        print(f"  Request model: ExplanationRequest")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=EXPLANATION_ADDR,
+            message=req,
+            response_type=ExplanationMessage,
+            timeout=5,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [1]")
+            resp = resp[1]
+
+        print(f"  Summary: {resp.summary[:50]}...")
+        print(f"  Guidance: {resp.driver_guidance[:50]}...")
+        # Check if using LLM or fallback
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        mode = "COMPLETED" if groq_key else "FALLBACK"
+        print(f"  LLM Mode: {mode}")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def test_verification():
+    """Test Verification agent directly (async)."""
+    print("\n[TEST] Verification Agent")
+    print("-" * 70)
+
+    if not VERIFICATION_ADDR:
+        print("✗ SKIP - VERIFICATION_AGENT_ADDRESS not configured")
+        return False
+
+    try:
+        diagnosis = DiagnosisSummary(
+            issue="Low tyre pressure",
+            affected_component="tyre",
+            severity="WARNING",
+            safe_to_drive=True,
+            recommendation="Check tyre pressure",
+        )
+
+        req = VerificationRequest(
+            request_id="test-006",
+            vehicle_id="TEST-VEH",
+            diagnosis=diagnosis,
+        )
+
+        print(f"  Destination: {VERIFICATION_ADDR[:40]}...")
+        print(f"  Request model: VerificationRequest")
+        print(f"  Awaiting response...")
+
+        resp = await send_sync_message(
+            destination=VERIFICATION_ADDR,
+            message=req,
+            response_type=VerificationMessage,
+            timeout=5,
+        )
+
+        print(f"  Response type: {type(resp).__name__}")
+        if isinstance(resp, tuple):
+            print(f"  Response is tuple, extracting [1]")
+            resp = resp[1]
+
+        print(f"  Verified: {resp.verified}")
+        print(f"  Issues: {len(resp.issues)}")
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 async def main():
     """Run all tests in a single async context."""
     results = []
@@ -142,6 +364,18 @@ async def main():
 
     safety_result = await test_safety()
     results.append(("Safety", safety_result))
+
+    maintenance_result = await test_maintenance()
+    results.append(("Maintenance", maintenance_result))
+
+    notification_result = await test_notification()
+    results.append(("Notification", notification_result))
+
+    explanation_result = await test_explanation()
+    results.append(("Explanation", explanation_result))
+
+    verification_result = await test_verification()
+    results.append(("Verification", verification_result))
 
     # Summary
     print("\n" + "=" * 70)
