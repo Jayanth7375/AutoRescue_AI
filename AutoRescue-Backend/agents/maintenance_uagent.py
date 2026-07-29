@@ -1,28 +1,27 @@
 """Maintenance Agent - Generates maintenance recommendations."""
 
+import os
 import logging
-from uagents import Agent, Context, Model
+from uagents import Agent, Context
+from dotenv import load_dotenv
 
+from agents.messages import (
+    MaintenanceRequest,
+    MaintenanceMessage,
+)
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-class MaintenanceRequest(Model):
-    """Request for maintenance recommendations."""
-    request_id: str
-    vehicle_id: str
-    severity: str
-    affected_component: str
-    issue: str
+MAINTENANCE_AGENT_SEED = os.getenv("MAINTENANCE_AGENT_SEED", "autorescue-maintenance-agent-seed")
+MAINTENANCE_AGENT_PORT = int(os.getenv("MAINTENANCE_AGENT_PORT", "8022"))
 
-class MaintenanceResponse(Model):
-    """Maintenance recommendation response."""
-    request_id: str
-    vehicle_id: str
-    component: str
-    action: str
-    urgency: str
-    reason: str
-
-agent = Agent(name="maintenance", port=8022, seed="maintenance_seed_9012")
+agent = Agent(
+    name="autorescue_maintenance_agent",
+    seed=MAINTENANCE_AGENT_SEED,
+    port=MAINTENANCE_AGENT_PORT,
+    endpoint=[f"http://127.0.0.1:{MAINTENANCE_AGENT_PORT}/submit"],
+)
 
 MAINTENANCE_RULES = {
     "tyre": {
@@ -55,16 +54,26 @@ async def handle_maintenance(ctx: Context, sender: str, msg: MaintenanceRequest)
     rules = MAINTENANCE_RULES.get(component_key, {})
     action_data = rules.get(msg.severity, {"action": "Schedule service", "urgency": "SOON"})
 
-    response = MaintenanceResponse(
-        request_id=msg.request_id,
-        vehicle_id=msg.vehicle_id,
-        component=msg.affected_component,
+    response = MaintenanceMessage(
+        component=msg.diagnosis.affected_component if hasattr(msg, 'diagnosis') and msg.diagnosis else "UNKNOWN",
         action=action_data["action"],
         urgency=action_data["urgency"],
-        reason=msg.issue
+        reason=msg.diagnosis.issue if hasattr(msg, 'diagnosis') and msg.diagnosis else "Vehicle maintenance required"
     )
 
+    logger.info(f"[MAINTENANCE] {msg.request_id} → Sending recommendation: {response.component} {response.urgency}")
     await ctx.send(sender, response)
+
+
+@agent.on_event("startup")
+async def startup(ctx: Context):
+    """Log startup."""
+    logger.info("=" * 60)
+    logger.info("Maintenance Agent started")
+    logger.info(f"Agent Name: {ctx.agent.name}")
+    logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     agent.run()
