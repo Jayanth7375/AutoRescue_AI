@@ -35,7 +35,10 @@ service_uagent = Agent(
 )
 
 
-@service_uagent.on_message(model=ServiceRequestMessage)
+@service_uagent.on_query(
+    model=ServiceRequestMessage,
+    replies={ServiceResponseMessage, ServiceErrorMessage},
+)
 async def handle_service_request(ctx: Context, sender: str, msg: ServiceRequestMessage):
     """
     Process service request and find nearby service centres.

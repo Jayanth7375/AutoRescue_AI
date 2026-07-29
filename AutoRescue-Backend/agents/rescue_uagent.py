@@ -31,7 +31,10 @@ rescue_uagent = Agent(
 )
 
 
-@rescue_uagent.on_message(model=RescueRequestMessage)
+@rescue_uagent.on_query(
+    model=RescueRequestMessage,
+    replies={RescueResponseMessage, RescueErrorMessage},
+)
 async def handle_rescue_request(ctx: Context, sender: str, msg: RescueRequestMessage):
     """
     Process rescue request and determine assistance requirements.

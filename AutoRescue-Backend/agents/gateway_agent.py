@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from agents.messages import (
     AutoRescueRequestMessage,
-    AutoRescueResponseMessage,
+    AutoRescueResponseMessageExtended,
     AutoRescueErrorMessage,
 )
 
@@ -34,7 +34,7 @@ gateway_uagent = Agent(
 async def call_orchestrator(
     ctx: Context,
     request: AutoRescueRequestMessage,
-) -> AutoRescueResponseMessage | AutoRescueErrorMessage:
+) -> AutoRescueResponseMessageExtended | AutoRescueErrorMessage:
     """
     Synchronously call the Orchestrator using send_and_receive.
 
@@ -47,18 +47,23 @@ async def call_orchestrator(
 
     try:
         # Use send_and_receive to synchronously wait for response
-        response = await ctx.send_and_receive(
+        result = await ctx.send_and_receive(
             destination=ORCHESTRATOR_AGENT_ADDRESS,
             message=request,
             timeout=120,
         )
 
-        logger.info(
-            f"[GATEWAY] {request.request_id} ← ORCHESTRATOR: {type(response).__name__}"
-        )
+        logger.info(f"[GATEWAY] {request.request_id} ← ORCHESTRATOR: {type(result).__name__}")
 
-        if isinstance(response, AutoRescueResponseMessage):
-            logger.info(f"[GATEWAY] {request.request_id} got AutoRescueResponseMessage: {response.status}")
+        # Unpack tuple response (response, status) if needed
+        if isinstance(result, tuple):
+            response, status = result
+            logger.info(f"[GATEWAY] UNPACKED: response={type(response).__name__}, status={type(status).__name__}")
+        else:
+            response = result
+
+        if isinstance(response, AutoRescueResponseMessageExtended):
+            logger.info(f"[GATEWAY] {request.request_id} got AutoRescueResponseMessageExtended: {response.status}")
             return response
 
         elif isinstance(response, AutoRescueErrorMessage):
