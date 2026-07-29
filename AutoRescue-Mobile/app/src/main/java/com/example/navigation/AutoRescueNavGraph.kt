@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.ui.components.AutoRescueBottomBar
 import com.example.ui.screens.*
 import com.example.viewmodel.DiagnosticsViewModel
+import com.example.viewmodel.RescueViewModel
 import com.example.viewmodel.VehicleViewModel
 
 @Composable
@@ -28,6 +29,7 @@ fun AutoRescueMainApp(
     navController: NavHostController = rememberNavController(),
     vehicleViewModel: VehicleViewModel = viewModel(),
     diagnosticsViewModel: DiagnosticsViewModel = viewModel(),
+    rescueViewModel: RescueViewModel = viewModel(),
     initialRoute: String? = null
 ) {
     val context = LocalContext.current
@@ -137,6 +139,7 @@ fun AutoRescueMainApp(
                 RescueScreen(
                     vehicleViewModel = vehicleViewModel,
                     diagnosticsViewModel = diagnosticsViewModel,
+                    rescueViewModel = rescueViewModel,
                     onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                     onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
                 )
