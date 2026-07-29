@@ -151,8 +151,8 @@ class Orchestrator10Agent:
 
                 logger.info(f"[PHASE9][Telemetry] RESPONSE RECEIVED - type: {type(telemetry_resp).__name__}")
                 if isinstance(telemetry_resp, tuple):
-                    logger.info(f"[PHASE9][Telemetry] RESPONSE is tuple, extracting [1]")
-                    telemetry_resp = telemetry_resp[1]
+                    telemetry_resp, status = telemetry_resp
+                    logger.info(f"[PHASE9][Telemetry] UNPACKED: response={type(telemetry_resp).__name__}, status={type(status).__name__}")
 
                 logger.info(f"[PHASE9][Telemetry] PARSE OK - valid={getattr(telemetry_resp, 'valid', '?')}")
                 validation = telemetry_resp
@@ -202,8 +202,8 @@ class Orchestrator10Agent:
 
                 logger.info(f"[PHASE9][Diagnostic] RESPONSE RECEIVED - type: {type(diag_resp).__name__}")
                 if isinstance(diag_resp, tuple):
-                    logger.info(f"[PHASE9][Diagnostic] RESPONSE is tuple, extracting [1]")
-                    diag_resp = diag_resp[1]
+                    diag_resp, status = diag_resp
+                    logger.info(f"[PHASE9][Diagnostic] UNPACKED: response={type(diag_resp).__name__}, status={type(status).__name__}")
 
                 diagnosis = DiagnosisSummary(
                     issue=diag_resp.issue,
@@ -252,8 +252,8 @@ class Orchestrator10Agent:
 
                 logger.info(f"[PHASE9][Safety] RESPONSE RECEIVED - type: {type(safety_resp).__name__}")
                 if isinstance(safety_resp, tuple):
-                    logger.info(f"[PHASE9][Safety] RESPONSE is tuple, extracting [1]")
-                    safety_resp = safety_resp[1]
+                    safety_resp, status = safety_resp
+                    logger.info(f"[PHASE9][Safety] UNPACKED: response={type(safety_resp).__name__}, status={type(status).__name__}")
 
                 logger.info(f"[PHASE9][Safety] PARSE OK - safe={getattr(safety_resp, 'safe_to_drive', '?')}")
                 safety = safety_resp
@@ -299,7 +299,7 @@ class Orchestrator10Agent:
                 )
 
                 if isinstance(maint_resp, tuple):
-                    maint_resp = maint_resp[1]
+                    maint_resp, status = maint_resp
 
                 maintenance = maint_resp
                 trace.append(AgentTraceEntry(
@@ -341,7 +341,7 @@ class Orchestrator10Agent:
                     )
 
                     if isinstance(service_resp, tuple):
-                        service_resp = service_resp[1]
+                        service_resp, status = service_resp
 
                     service_response = service_resp
                     trace.append(AgentTraceEntry(
@@ -398,7 +398,7 @@ class Orchestrator10Agent:
                     )
 
                     if isinstance(rescue_resp, tuple):
-                        rescue_resp = rescue_resp[1]
+                        rescue_resp, status = rescue_resp
 
                     rescue_response = rescue_resp
                     trace.append(AgentTraceEntry(
@@ -442,7 +442,7 @@ class Orchestrator10Agent:
                 )
 
                 if isinstance(notif_resp, tuple):
-                    notif_resp = notif_resp[1]
+                    notif_resp, status = notif_resp
 
                 notifications = [notif_resp] if notif_resp else []
                 trace.append(AgentTraceEntry(
@@ -479,7 +479,7 @@ class Orchestrator10Agent:
                 )
 
                 if isinstance(explain_resp, tuple):
-                    explain_resp = explain_resp[1]
+                    explain_resp, status = explain_resp
 
                 explanation = explain_resp
                 trace.append(AgentTraceEntry(
@@ -516,7 +516,7 @@ class Orchestrator10Agent:
                 )
 
                 if isinstance(verify_resp, tuple):
-                    verify_resp = verify_resp[1]
+                    verify_resp, status = verify_resp
 
                 verification = verify_resp
                 trace.append(AgentTraceEntry(
