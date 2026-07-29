@@ -31,8 +31,11 @@ COMPONENT_TYPES = {
     "coolant": "COOLANT",
 }
 
-@agent.on_message(model=NotificationRequest)
-async def handle_notification(ctx: Context, sender: str, msg: NotificationRequest):
+@agent.on_query(
+    model=NotificationRequest,
+    replies={NotificationMessage},
+)
+async def handle_notification_query(ctx: Context, sender: str, msg: NotificationRequest):
     """Generate current diagnostic notifications."""
 
     timestamp = datetime.utcnow().isoformat() + "Z"

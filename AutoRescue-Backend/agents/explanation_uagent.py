@@ -96,8 +96,11 @@ Keep it concise and user-friendly."""
 
     return "", ""
 
-@agent.on_message(model=ExplanationRequest)
-async def handle_explanation(ctx: Context, sender: str, msg: ExplanationRequest):
+@agent.on_query(
+    model=ExplanationRequest,
+    replies={ExplanationMessage},
+)
+async def handle_explanation_query(ctx: Context, sender: str, msg: ExplanationRequest):
     """Generate explanation with LLM fallback."""
 
     summary, guidance = await get_llm_explanation(

@@ -46,8 +46,11 @@ MAINTENANCE_RULES = {
     },
 }
 
-@agent.on_message(model=MaintenanceRequest)
-async def handle_maintenance(ctx: Context, sender: str, msg: MaintenanceRequest):
+@agent.on_query(
+    model=MaintenanceRequest,
+    replies={MaintenanceMessage},
+)
+async def handle_maintenance_query(ctx: Context, sender: str, msg: MaintenanceRequest):
     """Generate maintenance recommendation based on severity."""
 
     # Get component name

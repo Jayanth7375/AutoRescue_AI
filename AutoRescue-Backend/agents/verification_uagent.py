@@ -23,8 +23,11 @@ agent = Agent(
     endpoint=[f"http://127.0.0.1:{VERIFICATION_AGENT_PORT}/submit"],
 )
 
-@agent.on_message(model=VerificationRequest)
-async def handle_verification(ctx: Context, sender: str, msg: VerificationRequest):
+@agent.on_query(
+    model=VerificationRequest,
+    replies={VerificationMessage},
+)
+async def handle_verification_query(ctx: Context, sender: str, msg: VerificationRequest):
     """Verify consistency of all diagnostic outputs."""
 
     issues = []

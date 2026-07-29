@@ -23,8 +23,11 @@ agent = Agent(
     endpoint=[f"http://127.0.0.1:{TELEMETRY_AGENT_PORT}/submit"],
 )
 
-@agent.on_message(model=TelemetryValidationRequest)
-async def handle_telemetry(ctx: Context, sender: str, msg: TelemetryValidationRequest):
+@agent.on_query(
+    model=TelemetryValidationRequest,
+    replies={TelemetryValidationMessage},
+)
+async def handle_telemetry_query(ctx: Context, sender: str, msg: TelemetryValidationRequest):
     """Validate and normalize telemetry data."""
     issues = []
 
