@@ -1,18 +1,98 @@
+# ===== Android Studio =====
 *.iml
-.gradle
-.kotlin
+.gradle/
+.kotlin/
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+/.idea/
+.idea/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/misc.xml
+.idea/dictionaries/
+
+# ===== Build Directories =====
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+buildSrc/build/
+*/build/
+/gradle/
+
+# ===== Gradle =====
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+gradlew
+gradlew.bat
+
+# ===== Build Output =====
+*.apk
+*.aar
+*.aab
+*.ap_
+*.dex
+
+# ===== Native Build =====
+.externalNativeBuild/
+.cxx/
+
+# ===== Environment & Secrets =====
+.env
+.env.local
+.env.*.local
+*.jks
+*.keystore
+debug.keystore
+release.keystore
+google-services.json
+GoogleService-Info.plist
+
+# ===== IDE & Editor =====
+.vscode/
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# ===== OS Specific =====
 .DS_Store
-/build
-/captures
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== Local Properties =====
+local.properties
+gradle.properties
+
+# ===== Lint & Testing =====
+lint-results.xml
+lint-results-debug.html
+lint-results-release.html
+.gradle/
+test-results/
+
+# ===== Generated Files =====
+gen/
+.classpath
+.project
+.settings/
+
+# ===== Android Emulator =====
+avd/
+.android/
+
+# ===== Misc =====
 .externalNativeBuild
 .cxx
-local.properties
-.env
-debug.keystore
+*.log
+logs/
+out/
+reportes/

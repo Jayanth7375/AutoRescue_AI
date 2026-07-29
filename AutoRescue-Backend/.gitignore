@@ -55,3 +55,22 @@ htmlcov/
 
 # UV
 .python-version
+
+# Logs
+*.log
+logs/
+fastapi.log
+fastapi_output.log
+fastapi_error.log
+backend.log
+gw.log
+orch.log
+diag.log
+chat_test_results.log
+gateway_test_results.log
+
+# Project-specific
+/scratch/
+/temp/
+/tmp/
+.venv_new/

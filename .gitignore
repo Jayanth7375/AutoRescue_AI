@@ -1,0 +1,320 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.venv_new/
+
+# Poetry
+poetry.lock
+dist/
+
+# uv
+.venv/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Linting & Formatting
+.flake8
+.pylintrc
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===== FastAPI / Uvicorn =====
+*.log
+logs/
+
+# ===== Environment Variables =====
+.env
+.env.local
+.env.*.local
+*.env
+
+# ===== IDE & Editor =====
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ===== Android / Gradle =====
+# Android Studio
+.gradle/
+.idea/
+*.iml
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Gradle wrapper
+gradle/wrapper/*.jar
+
+# Build directories
+app/build/
+*/build/
+buildSrc/build/
+.gradle/
+build/
+
+# Local properties
+local.properties
+
+# Generated files
+gen/
+.classpath
+.project
+.settings/
+
+# Android NDK
+obj/
+libs/
+
+# ===== Kotlin =====
+*.class
+*.jar
+*.war
+*.aar
+*.ks
+*.jks
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== Windows =====
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ===== Linux =====
+.directory
+*~
+
+# ===== JetBrains =====
+.idea/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===== OS Specific =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== Temporary Files =====
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.#*
+
+# ===== Node (if needed for frontend) =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+package-lock.json
+yarn.lock
+
+# ===== Database =====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ===== Secrets & Keys =====
+*.pem
+*.key
+*.jks
+*.p12
+*.pfx
+*.keystore
+debug.keystore
+*.gpg
+secrets/
+credentials/
+
+# ===== Docker =====
+.dockerignore
+Dockerfile
+docker-compose.override.yml
+.docker/
+
+# ===== Certificates =====
+*.crt
+*.cer
+*.pem
+*.key
+
+# ===== Build Outputs =====
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# ===== Archive Files =====
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ===== Test & Coverage =====
+.pytest_cache/
+.coverage
+htmlcov/
+.nose*
+coverage.xml
+*.cover
+test-results/
+junit.xml
+
+# ===== Gradle Wrapper (only ignore jars, keep scripts) =====
+gradle/wrapper/*.jar
+
+# ===== Android Emulator =====
+avd/
+.android/
+
+# ===== Firebase & Google Services =====
+google-services.json
+GoogleService-Info.plist
+
+# ===== Project-Specific =====
+# FastAPI logs
+fastapi.log
+fastapi_output.log
+fastapi_error.log
+backend.log
+gw.log
+orch.log
+diag.log
+chat_test_results.log
+gateway_test_results.log
+android_build.log
+
+# AutoRescue specific
+/scratch/
+/temp/
+/tmp/
+/dist/
+/release/
+
+# Build outputs
+*.apk
+*.aar
+*.aab
+.gradle/
+
+# Lint results
+lint-results.xml
+lint-results-debug.html
+
+# Proguard
+proguard-rules.pro
+proguard-rules-debug.pro
+
+# ===== Development Artifacts =====
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# ===== Compiled Files =====
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# ===== MacOS =====
+.AppleDouble
+.LSOverride
+
+# ===== Windows =====
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# ===== Miscellaneous =====
+.cache/
+.vscode-test/
+output/
+reports/
