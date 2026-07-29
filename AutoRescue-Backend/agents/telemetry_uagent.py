@@ -1,33 +1,27 @@
 """Telemetry Agent - Validates and normalizes vehicle sensor data."""
 
+import os
 import logging
-from uagents import Agent, Context, Model
+from uagents import Agent, Context
+from dotenv import load_dotenv
 
+from agents.messages import (
+    TelemetryValidationRequest,
+    TelemetryValidationMessage,
+)
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-class TelemetryValidationRequest(Model):
-    """Request to validate telemetry data."""
-    request_id: str
-    vehicle_id: str
-    engine_temperature: float
-    battery_voltage: float
-    front_left_tyre_psi: float
-    front_right_tyre_psi: float
-    rear_left_tyre_psi: float
-    rear_right_tyre_psi: float
-    coolant_level: float
-    latitude: float
-    longitude: float
+TELEMETRY_AGENT_SEED = os.getenv("TELEMETRY_AGENT_SEED", "autorescue-telemetry-agent-seed")
+TELEMETRY_AGENT_PORT = int(os.getenv("TELEMETRY_AGENT_PORT", "8020"))
 
-class TelemetryValidationResponse(Model):
-    """Response with validated telemetry data."""
-    request_id: str
-    vehicle_id: str
-    valid: bool
-    issues: list[str]
-    normalized_telemetry: dict
-
-agent = Agent(name="telemetry", port=8020, seed="telemetry_seed_1234")
+agent = Agent(
+    name="autorescue_telemetry_agent",
+    seed=TELEMETRY_AGENT_SEED,
+    port=TELEMETRY_AGENT_PORT,
+    endpoint=[f"http://127.0.0.1:{TELEMETRY_AGENT_PORT}/submit"],
+)
 
 @agent.on_message(model=TelemetryValidationRequest)
 async def handle_telemetry(ctx: Context, sender: str, msg: TelemetryValidationRequest):
@@ -71,15 +65,25 @@ async def handle_telemetry(ctx: Context, sender: str, msg: TelemetryValidationRe
         "longitude": msg.longitude,
     }
 
-    response = TelemetryValidationResponse(
-        request_id=msg.request_id,
-        vehicle_id=msg.vehicle_id,
+    response = TelemetryValidationMessage(
         valid=len(issues) == 0,
         issues=issues,
         normalized_telemetry=normalized
     )
 
+    logger.info(f"[TELEMETRY] {msg.request_id} → Sending validation result to {sender}")
     await ctx.send(sender, response)
+
+
+@agent.on_event("startup")
+async def startup(ctx: Context):
+    """Log startup."""
+    logger.info("=" * 60)
+    logger.info("Telemetry Agent started")
+    logger.info(f"Agent Name: {ctx.agent.name}")
+    logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     agent.run()

@@ -193,12 +193,36 @@ class AutoRescueErrorMessage(Model):
 
 # Extended 10-Agent Response Models
 
+class TelemetryValidationRequest(Model):
+    """Request to validate vehicle telemetry."""
+
+    request_id: str
+    vehicle_id: str
+    engine_temperature: float
+    battery_voltage: float
+    front_left_tyre_psi: float
+    front_right_tyre_psi: float
+    rear_left_tyre_psi: float
+    rear_right_tyre_psi: float
+    coolant_level: float
+    latitude: float
+    longitude: float
+
+
 class TelemetryValidationMessage(Model):
     """Telemetry validation result."""
 
     valid: bool
     issues: list[str] = []
     normalized_telemetry: dict = {}
+
+
+class SafetyRequest(Model):
+    """Request to determine vehicle safety."""
+
+    request_id: str
+    vehicle_id: str
+    diagnosis: DiagnosisSummary
 
 
 class SafetyMessage(Model):
@@ -210,6 +234,15 @@ class SafetyMessage(Model):
     risk_level: str
 
 
+class MaintenanceRequest(Model):
+    """Request to generate maintenance recommendation."""
+
+    request_id: str
+    vehicle_id: str
+    diagnosis: DiagnosisSummary
+    safety: SafetyMessage
+
+
 class MaintenanceMessage(Model):
     """Maintenance recommendation."""
 
@@ -217,6 +250,17 @@ class MaintenanceMessage(Model):
     action: str
     urgency: str
     reason: str = ""
+
+
+class NotificationRequest(Model):
+    """Request to generate diagnostic notifications."""
+
+    request_id: str
+    vehicle_id: str
+    telemetry_validation: TelemetryValidationMessage | None = None
+    diagnosis: DiagnosisSummary | None = None
+    safety: SafetyMessage | None = None
+    maintenance: MaintenanceMessage | None = None
 
 
 class NotificationMessage(Model):
@@ -230,11 +274,32 @@ class NotificationMessage(Model):
     timestamp: str = ""
 
 
+class ExplanationRequest(Model):
+    """Request to generate AI explanation of vehicle state."""
+
+    request_id: str
+    vehicle_id: str
+    diagnosis: DiagnosisSummary | None = None
+    safety: SafetyMessage | None = None
+    maintenance: MaintenanceMessage | None = None
+
+
 class ExplanationMessage(Model):
     """AI explanation of vehicle state."""
 
     summary: str
     driver_guidance: str
+
+
+class VerificationRequest(Model):
+    """Request to verify consistency of all diagnostic outputs."""
+
+    request_id: str
+    vehicle_id: str
+    telemetry_validation: TelemetryValidationMessage | None = None
+    diagnosis: DiagnosisSummary | None = None
+    safety: SafetyMessage | None = None
+    maintenance: MaintenanceMessage | None = None
 
 
 class VerificationMessage(Model):

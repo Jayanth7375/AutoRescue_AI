@@ -1,27 +1,28 @@
 """Safety Agent - Determines authoritative safety flags."""
 
+import os
 import logging
-from uagents import Agent, Context, Model
+from uagents import Agent, Context
+from dotenv import load_dotenv
 
+from agents.messages import (
+    SafetyRequest,
+    SafetyMessage,
+    DiagnosisSummary,
+)
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-class SafetyRequest(Model):
-    """Request to determine safety flags."""
-    request_id: str
-    vehicle_id: str
-    severity: str
-    issue: str
+SAFETY_AGENT_SEED = os.getenv("SAFETY_AGENT_SEED", "autorescue-safety-agent-seed")
+SAFETY_AGENT_PORT = int(os.getenv("SAFETY_AGENT_PORT", "8021"))
 
-class SafetyResponse(Model):
-    """Response with safety-critical flags."""
-    request_id: str
-    vehicle_id: str
-    safe_to_drive: bool
-    navigation_allowed: bool
-    tow_required: bool
-    risk_level: str
-
-agent = Agent(name="safety", port=8021, seed="safety_seed_5678")
+agent = Agent(
+    name="autorescue_safety_agent",
+    seed=SAFETY_AGENT_SEED,
+    port=SAFETY_AGENT_PORT,
+    endpoint=[f"http://127.0.0.1:{SAFETY_AGENT_PORT}/submit"],
+)
 
 @agent.on_message(model=SafetyRequest)
 async def handle_safety(ctx: Context, sender: str, msg: SafetyRequest):
