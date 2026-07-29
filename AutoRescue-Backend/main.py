@@ -46,6 +46,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Log configuration at startup
+_orch_addr = os.getenv("ORCHESTRATOR_AGENT_ADDRESS")
+if _orch_addr:
+    logger.info(f"[INIT] FastAPI configured with Orchestrator: {_orch_addr[:40]}...")
+else:
+    logger.warning("[INIT] ORCHESTRATOR_AGENT_ADDRESS not configured - /api/autorescue/check will fail")
+
 
 @app.get("/")
 async def root():
@@ -112,11 +119,15 @@ async def autorescue_check(request: AutoRescueApiRequest):
 
         request_id = str(uuid4())
         logger.info(f"[GATEWAY-P9] Request {request_id} received")
+        logger.info(f"[GATEWAY-P9] Vehicle: {request.vehicle_id}")
 
         # Get orchestrator agent address
         orch_addr = os.getenv("ORCHESTRATOR_AGENT_ADDRESS")
         if not orch_addr:
+            logger.error(f"[GATEWAY-P9] {request_id} ORCHESTRATOR_AGENT_ADDRESS not configured")
             raise ValueError("ORCHESTRATOR_AGENT_ADDRESS not configured")
+
+        logger.info(f"[GATEWAY-P9] {request_id} Target orchestrator: {orch_addr[:50]}...")
 
         # Build orchestrator request
         orch_request = AutoRescueRequestMessage(
@@ -133,16 +144,20 @@ async def autorescue_check(request: AutoRescueApiRequest):
             longitude=request.longitude,
         )
 
-        logger.info(f"[GATEWAY-P9] {request_id} → ORCHESTRATOR (10-agent)")
+        logger.info(f"[GATEWAY-P9] {request_id} → ORCHESTRATOR (sending AutoRescueRequestMessage)")
+        logger.info(f"[GATEWAY-P9] {request_id} Message model: {orch_request.__class__.__module__}.{orch_request.__class__.__name__}")
+
         try:
+            logger.info(f"[GATEWAY-P9] {request_id} Sending request, awaiting response (timeout=60s)...")
             result = await send_sync_message(
                 destination=orch_addr,
                 message=orch_request,
                 response_type=AutoRescueResponseMessageExtended,
                 timeout=60,
             )
+            logger.info(f"[GATEWAY-P9] {request_id} ✓ Received response type: {type(result).__name__}")
         except Exception as e:
-            logger.error(f"[GATEWAY-P9] {request_id}: Orchestrator communication error: {e}")
+            logger.error(f"[GATEWAY-P9] {request_id} Orchestrator communication error: {type(e).__name__}: {e}")
             raise HTTPException(
                 status_code=503,
                 detail="AutoRescue orchestration service temporarily unavailable. Please try again."

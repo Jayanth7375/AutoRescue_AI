@@ -43,15 +43,57 @@ agent = Agent(
     endpoint=[f"http://127.0.0.1:{ORCHESTRATOR_AGENT_PORT}/submit"],
 )
 
-# Agent addresses (will be configured via environment or hardcoded defaults)
-TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-NOTIFICATION_ADDR = os.getenv("NOTIFICATION_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-EXPLANATION_ADDR = os.getenv("EXPLANATION_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
-VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS", "agent1q2e9xgvf8hqe5a7jxdhsqz8mlwlh5s3vwm5nnz75eqngjz3dkq79c96fjnrg")
+# Agent addresses (MUST be configured via environment variables)
+TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS")
+SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS")
+MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
+SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
+RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
+NOTIFICATION_ADDR = os.getenv("NOTIFICATION_AGENT_ADDRESS")
+EXPLANATION_ADDR = os.getenv("EXPLANATION_AGENT_ADDRESS")
+VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS")
+
+
+@agent.on_query(
+    model=AutoRescueRequestMessage,
+    replies={AutoRescueResponseMessageExtended},
+)
+async def handle_autorescue_query(ctx: Context, sender: str, msg: AutoRescueRequestMessage):
+    """Handle incoming AutoRescue orchestration request from FastAPI (synchronous query pattern)."""
+    logger.info(f"[ORCH] {msg.request_id} ← RECEIVED query from {sender[:30]}...")
+
+    try:
+        # Create orchestrator instance and execute workflow
+        orchestrator = Orchestrator10Agent(ctx)
+        response = await orchestrator.orchestrate(msg)
+
+        logger.info(f"[ORCH] {msg.request_id} → SENDING response: {response.status}")
+        await ctx.send(sender, response)
+    except Exception as e:
+        logger.error(f"[ORCH] {msg.request_id} ✗ FAILED: {type(e).__name__}: {e}", exc_info=True)
+        error_response = AutoRescueResponseMessageExtended(
+            request_id=msg.request_id,
+            vehicle_id=msg.vehicle_id,
+            status="ERROR",
+            diagnosis=DiagnosisSummary(
+                issue="Orchestration failed",
+                affected_component="UNKNOWN",
+                severity="UNKNOWN",
+                safe_to_drive=False,
+                recommendation="Please try again",
+            ),
+            service_centres=[],
+            navigation_allowed=False,
+            message=f"Orchestration error: {str(e)[:100]}",
+            agent_trace=[
+                AgentTraceEntry(
+                    agent="Orchestrator",
+                    status="FAILED",
+                    summary=f"Error: {str(e)[:50]}"
+                )
+            ],
+        )
+        await ctx.send(sender, error_response)
 
 
 class Orchestrator10Agent:
@@ -554,11 +596,33 @@ class Orchestrator10Agent:
 
 @agent.on_event("startup")
 async def startup(ctx: Context):
-    """Log startup."""
+    """Log startup and validate configuration."""
     logger.info("=" * 60)
     logger.info("Orchestrator Phase 9 Agent started")
     logger.info(f"Agent Name: {ctx.agent.name}")
     logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
+
+    # Validate all required agent addresses are configured
+    required_addrs = {
+        "TELEMETRY": TELEMETRY_ADDR,
+        "SAFETY": SAFETY_ADDR,
+        "MAINTENANCE": MAINTENANCE_ADDR,
+        "SERVICE": SERVICE_ADDR,
+        "RESCUE": RESCUE_ADDR,
+        "NOTIFICATION": NOTIFICATION_ADDR,
+        "EXPLANATION": EXPLANATION_ADDR,
+        "VERIFICATION": VERIFICATION_ADDR,
+    }
+
+    missing = [name for name, addr in required_addrs.items() if not addr]
+    if missing:
+        logger.error(f"⚠ Missing agent addresses: {', '.join(missing)}")
+        logger.error("Configure via environment variables (see .env file)")
+    else:
+        logger.info("✓ All 8 agent addresses configured:")
+        for name, addr in required_addrs.items():
+            logger.info(f"  {name:15} {addr[:40]}...")
     logger.info("=" * 60)
 
 

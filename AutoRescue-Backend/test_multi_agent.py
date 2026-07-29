@@ -5,7 +5,7 @@ import json
 import time
 
 BASE_URL = "http://127.0.0.1:8000"
-TEST_TIMEOUT = 30
+TEST_TIMEOUT = 120  # 10-agent orchestration needs more time
 
 # Test cases with telemetry that should trigger different severity levels
 TEST_SCENARIOS = {
@@ -76,10 +76,10 @@ def test_autorescue_check():
         expected_status = scenario_data["expected_status"]
 
         try:
-            # Call direct 10-agent endpoint
+            # Call canonical 10-agent orchestration endpoint
             with httpx.Client(timeout=TEST_TIMEOUT) as client:
                 response = client.post(
-                    f"{BASE_URL}/api/autorescue/check-direct",  # Use new direct endpoint
+                    f"{BASE_URL}/api/autorescue/check",  # Canonical Phase 9 endpoint
                     json=payload
                 )
 
@@ -209,7 +209,9 @@ def test_agent_health():
             print(f"  [XX] {agent_name:20s} - {type(e).__name__}")
             unhealthy += 1
 
-    print(f"\nHealth: {healthy}/{healthy + unhealthy} agents responsive\n")
+    print(f"\nAgents: {healthy - 1}/{healthy + unhealthy - 1} responsive")
+    gateway_status = "READY" if unhealthy == 0 else "FAILED"
+    print(f"Gateway: {gateway_status}\n")
     return unhealthy == 0
 
 if __name__ == "__main__":
