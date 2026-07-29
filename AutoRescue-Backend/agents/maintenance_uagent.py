@@ -50,18 +50,25 @@ MAINTENANCE_RULES = {
 async def handle_maintenance(ctx: Context, sender: str, msg: MaintenanceRequest):
     """Generate maintenance recommendation based on severity."""
 
-    component_key = msg.affected_component.lower()
+    # Get component name
+    component = msg.diagnosis.affected_component if msg.diagnosis else "UNKNOWN"
+    component_key = component.lower()
+
+    # Get severity (from diagnosis or direct)
+    severity = msg.diagnosis.severity if msg.diagnosis else msg.severity
+
+    # Lookup maintenance rule
     rules = MAINTENANCE_RULES.get(component_key, {})
-    action_data = rules.get(msg.severity, {"action": "Schedule service", "urgency": "SOON"})
+    action_data = rules.get(severity, {"action": "Schedule service", "urgency": "SOON"})
 
     response = MaintenanceMessage(
-        component=msg.diagnosis.affected_component if hasattr(msg, 'diagnosis') and msg.diagnosis else "UNKNOWN",
+        component=component,
         action=action_data["action"],
         urgency=action_data["urgency"],
-        reason=msg.diagnosis.issue if hasattr(msg, 'diagnosis') and msg.diagnosis else "Vehicle maintenance required"
+        reason=msg.diagnosis.issue if msg.diagnosis else "Vehicle maintenance required"
     )
 
-    logger.info(f"[MAINTENANCE] {msg.request_id} → Sending recommendation: {response.component} {response.urgency}")
+    logger.info(f"[MAINTENANCE] {msg.request_id} → {component} {response.urgency}")
     await ctx.send(sender, response)
 
 

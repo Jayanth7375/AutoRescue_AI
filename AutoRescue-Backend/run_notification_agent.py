@@ -1,4 +1,7 @@
-"""Entry point for running the Notification generation uAgent."""
+#!/usr/bin/env python3
+"""Run notification Agent."""
+import sys
+sys.path.insert(0, "/c/Users/Jayanth/Downloads/AutoRescueAI/AutoRescue-Backend")
 
 from agents.notification_uagent import agent
 

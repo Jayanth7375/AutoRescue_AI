@@ -160,7 +160,7 @@ function Start-FastApiGateway {
 
 # Cleanup: Kill any existing processes on these ports first
 Write-Host "Pre-startup: Cleaning up any existing processes..." -ForegroundColor Yellow
-$ports = @(8011, 8013, 8015, 8018, 8000)
+$ports = @(8000, 8011, 8013, 8015, 8018, 8020, 8021, 8022, 8023, 8024, 8025)
 foreach ($p in $ports) {
     $conn = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue
     if ($conn) {
@@ -170,6 +170,60 @@ foreach ($p in $ports) {
 }
 Write-Host "Waiting 3 seconds for ports to release..." -ForegroundColor Gray
 Start-Sleep -Seconds 3
+Write-Host ""
+
+# Start Telemetry Validation Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Telemetry Agent :8020" `
+    -Command "uv run python run_telemetry_agent.py" `
+    -Port 8020)) {
+    exit 1
+}
+Write-Host ""
+
+# Start Safety Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Safety Agent :8021" `
+    -Command "uv run python run_safety_agent.py" `
+    -Port 8021)) {
+    exit 1
+}
+Write-Host ""
+
+# Start Maintenance Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Maintenance Agent :8022" `
+    -Command "uv run python run_maintenance_agent.py" `
+    -Port 8022)) {
+    exit 1
+}
+Write-Host ""
+
+# Start Notification Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Notification Agent :8023" `
+    -Command "uv run python run_notification_agent.py" `
+    -Port 8023)) {
+    exit 1
+}
+Write-Host ""
+
+# Start Explanation Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Explanation Agent :8024" `
+    -Command "uv run python run_explanation_agent.py" `
+    -Port 8024)) {
+    exit 1
+}
+Write-Host ""
+
+# Start Verification Agent
+if (-not (Start-AutoRescueAgent `
+    -Name "Verification Agent :8025" `
+    -Command "uv run python run_verification_agent.py" `
+    -Port 8025)) {
+    exit 1
+}
 Write-Host ""
 
 # Start Diagnostic Agent
@@ -199,10 +253,10 @@ if (-not (Start-AutoRescueAgent `
 }
 Write-Host ""
 
-# Start Orchestrator Agent
+# Start Phase 9 Orchestrator Agent
 if (-not (Start-AutoRescueAgent `
-    -Name "Orchestrator Agent :8018" `
-    -Command "uv run python run_orchestrator_agent.py" `
+    -Name "Orchestrator Agent (Phase 9) :8018" `
+    -Command "uv run python run_orchestrator_phase9_agent.py" `
     -Port 8018)) {
     exit 1
 }
@@ -227,11 +281,19 @@ Write-Host "Services:" -ForegroundColor Cyan
 Write-Host "  FastAPI Gateway     : http://127.0.0.1:8000"
 Write-Host "  Swagger UI          : http://127.0.0.1:8000/docs"
 Write-Host ""
-Write-Host "  Agents (4-Agent Stable Demo Architecture):" -ForegroundColor Cyan
+Write-Host "  Agents (Phase 9 - Real 10-Agent Architecture):" -ForegroundColor Cyan
+Write-Host "    Telemetry Agent     : port 8020"
+Write-Host "    Safety Agent        : port 8021"
+Write-Host "    Maintenance Agent   : port 8022"
+Write-Host "    Notification Agent  : port 8023"
+Write-Host "    Explanation Agent   : port 8024"
+Write-Host "    Verification Agent  : port 8025"
+Write-Host ""
+Write-Host "  Original 4 Agents (Legacy Support):" -ForegroundColor Cyan
 Write-Host "    Diagnostic Agent    : port 8011"
 Write-Host "    Service Agent       : port 8013"
 Write-Host "    Rescue Agent        : port 8015"
-Write-Host "    Orchestrator Agent  : port 8018"
+Write-Host "    Orchestrator (P9)   : port 8018"
 
 Write-Host ""
 Write-Host "Next step:" -ForegroundColor Yellow

@@ -29,34 +29,40 @@ async def handle_safety(ctx: Context, sender: str, msg: SafetyRequest):
     """Determine safety flags based on severity."""
 
     if msg.severity == "CRITICAL":
-        response = SafetyResponse(
-            request_id=msg.request_id,
-            vehicle_id=msg.vehicle_id,
+        response = SafetyMessage(
             safe_to_drive=False,
             navigation_allowed=False,
             tow_required=True,
             risk_level="HIGH"
         )
     elif msg.severity == "WARNING":
-        response = SafetyResponse(
-            request_id=msg.request_id,
-            vehicle_id=msg.vehicle_id,
+        response = SafetyMessage(
             safe_to_drive=True,
             navigation_allowed=True,
             tow_required=False,
             risk_level="MEDIUM"
         )
     else:  # NORMAL
-        response = SafetyResponse(
-            request_id=msg.request_id,
-            vehicle_id=msg.vehicle_id,
+        response = SafetyMessage(
             safe_to_drive=True,
             navigation_allowed=True,
             tow_required=False,
             risk_level="LOW"
         )
 
+    logger.info(f"[SAFETY] {msg.request_id} → {msg.severity}={response.risk_level}")
     await ctx.send(sender, response)
+
+
+@agent.on_event("startup")
+async def startup(ctx: Context):
+    """Log startup."""
+    logger.info("=" * 60)
+    logger.info("Safety Agent started")
+    logger.info(f"Agent Name: {ctx.agent.name}")
+    logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     agent.run()

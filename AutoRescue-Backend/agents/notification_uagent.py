@@ -1,36 +1,28 @@
 """Notification Agent - Generates alerts from current vehicle state."""
 
+import os
 import logging
 from datetime import datetime
-from uagents import Agent, Context, Model
+from uagents import Agent, Context
+from dotenv import load_dotenv
 
+from agents.messages import (
+    NotificationRequest,
+    NotificationMessage,
+)
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-class NotificationRequest(Model):
-    """Request to generate notifications."""
-    request_id: str
-    vehicle_id: str
-    severity: str
-    affected_component: str
-    issue: str
-    recommendation: str
+NOTIFICATION_AGENT_SEED = os.getenv("NOTIFICATION_AGENT_SEED", "autorescue-notification-agent-seed")
+NOTIFICATION_AGENT_PORT = int(os.getenv("NOTIFICATION_AGENT_PORT", "8023"))
 
-class Notification(Model):
-    """Single notification alert."""
-    type: str
-    severity: str
-    title: str
-    message: str
-    recommendation: str
-    timestamp: str
-
-class NotificationResponse(Model):
-    """Response with generated notifications."""
-    request_id: str
-    vehicle_id: str
-    notifications: list[Notification]
-
-agent = Agent(name="notification", port=8023, seed="notification_seed_3456")
+agent = Agent(
+    name="autorescue_notification_agent",
+    seed=NOTIFICATION_AGENT_SEED,
+    port=NOTIFICATION_AGENT_PORT,
+    endpoint=[f"http://127.0.0.1:{NOTIFICATION_AGENT_PORT}/submit"],
+)
 
 COMPONENT_TYPES = {
     "tyre": "TYRE",
@@ -41,39 +33,55 @@ COMPONENT_TYPES = {
 
 @agent.on_message(model=NotificationRequest)
 async def handle_notification(ctx: Context, sender: str, msg: NotificationRequest):
-    """Generate notifications from vehicle state."""
+    """Generate current diagnostic notifications."""
 
-    notifications = []
-
-    component_type = COMPONENT_TYPES.get(msg.affected_component.lower(), "VEHICLE")
     timestamp = datetime.utcnow().isoformat() + "Z"
 
-    # Generate title based on component and severity
-    if msg.severity == "CRITICAL":
-        title = f"Critical {msg.affected_component} Issue"
-    elif msg.severity == "WARNING":
-        title = f"{msg.affected_component} Warning"
+    # Generate notification from diagnosis if available
+    if msg.diagnosis:
+        component_type = COMPONENT_TYPES.get(msg.diagnosis.affected_component.lower(), "VEHICLE")
+
+        if msg.diagnosis.severity == "CRITICAL":
+            title = f"Critical {msg.diagnosis.affected_component} Issue"
+        elif msg.diagnosis.severity == "WARNING":
+            title = f"{msg.diagnosis.affected_component} Warning"
+        else:
+            title = f"{msg.diagnosis.affected_component} Status"
+
+        notification = NotificationMessage(
+            type=component_type,
+            severity=msg.diagnosis.severity,
+            title=title,
+            message=msg.diagnosis.issue,
+            recommendation=msg.diagnosis.recommendation,
+            timestamp=timestamp
+        )
+
+        logger.info(f"[NOTIFICATION] {msg.request_id} → Generated: {notification.title}")
+        await ctx.send(sender, notification)
     else:
-        title = f"{msg.affected_component} Status"
+        # No diagnosis available, send neutral notification
+        notification = NotificationMessage(
+            type="VEHICLE",
+            severity="NORMAL",
+            title="Vehicle Status Normal",
+            message="No issues detected.",
+            recommendation="Continue normal operation.",
+            timestamp=timestamp
+        )
+        logger.info(f"[NOTIFICATION] {msg.request_id} → Vehicle normal")
+        await ctx.send(sender, notification)
 
-    notification = Notification(
-        type=component_type,
-        severity=msg.severity,
-        title=title,
-        message=msg.issue,
-        recommendation=msg.recommendation,
-        timestamp=timestamp
-    )
 
-    notifications.append(notification)
+@agent.on_event("startup")
+async def startup(ctx: Context):
+    """Log startup."""
+    logger.info("=" * 60)
+    logger.info("Notification Agent started")
+    logger.info(f"Agent Name: {ctx.agent.name}")
+    logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
 
-    response = NotificationResponse(
-        request_id=msg.request_id,
-        vehicle_id=msg.vehicle_id,
-        notifications=notifications
-    )
-
-    await ctx.send(sender, response)
 
 if __name__ == "__main__":
     agent.run()

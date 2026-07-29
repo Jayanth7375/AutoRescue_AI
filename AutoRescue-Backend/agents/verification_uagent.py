@@ -1,73 +1,100 @@
 """Verification Agent - Final consistency checker for vehicle diagnosis."""
 
+import os
 import logging
-from uagents import Agent, Context, Model
+from uagents import Agent, Context
+from dotenv import load_dotenv
 
+from agents.messages import (
+    VerificationRequest,
+    VerificationMessage,
+)
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-class VerificationRequest(Model):
-    """Request for verification."""
-    request_id: str
-    vehicle_id: str
-    severity: str
-    safe_to_drive: bool
-    navigation_allowed: bool
-    tow_required: bool
+VERIFICATION_AGENT_SEED = os.getenv("VERIFICATION_AGENT_SEED", "autorescue-verification-agent-seed")
+VERIFICATION_AGENT_PORT = int(os.getenv("VERIFICATION_AGENT_PORT", "8025"))
 
-class VerificationResponse(Model):
-    """Verification response."""
-    request_id: str
-    vehicle_id: str
-    verified: bool
-    issues: list[str]
-    final_status: str
-
-agent = Agent(name="verification", port=8025, seed="verification_seed_2468")
+agent = Agent(
+    name="autorescue_verification_agent",
+    seed=VERIFICATION_AGENT_SEED,
+    port=VERIFICATION_AGENT_PORT,
+    endpoint=[f"http://127.0.0.1:{VERIFICATION_AGENT_PORT}/submit"],
+)
 
 @agent.on_message(model=VerificationRequest)
 async def handle_verification(ctx: Context, sender: str, msg: VerificationRequest):
-    """Verify consistency of diagnosis and safety flags."""
+    """Verify consistency of all diagnostic outputs."""
 
     issues = []
-    final_status = msg.severity
+    corrections = []
+
+    # Check diagnosis exists
+    if not msg.diagnosis:
+        issues.append("No diagnosis available for verification")
+
+    # Check safety exists
+    if not msg.safety:
+        issues.append("No safety data available for verification")
 
     # Safety-first consistency checks
-    if msg.severity == "CRITICAL":
-        if msg.safe_to_drive:
-            issues.append("CRITICAL severity but safe_to_drive=true (should be false)")
-            msg.safe_to_drive = False
-            final_status = "CRITICAL_CORRECTED"
+    if msg.diagnosis and msg.safety:
+        severity = msg.diagnosis.severity
 
-        if msg.navigation_allowed:
-            issues.append("CRITICAL severity but navigation_allowed=true (should be false)")
-            msg.navigation_allowed = False
-            final_status = "CRITICAL_CORRECTED"
+        if severity == "CRITICAL":
+            if msg.safety.safe_to_drive:
+                issues.append("CRITICAL severity but safe_to_drive=true")
+                corrections.append("Should be safe_to_drive=false")
 
-        if not msg.tow_required:
-            issues.append("CRITICAL severity but tow_required=false (should be true)")
-            msg.tow_required = True
-            final_status = "CRITICAL_CORRECTED"
+            if msg.safety.navigation_allowed:
+                issues.append("CRITICAL severity but navigation_allowed=true")
+                corrections.append("Should be navigation_allowed=false")
 
-    elif msg.severity == "WARNING":
-        # Warnings typically allow driving unless contradicted
-        if not msg.safe_to_drive and msg.severity == "WARNING":
-            issues.append("WARNING severity but safe_to_drive=false (inconsistent)")
+            if not msg.safety.tow_required:
+                issues.append("CRITICAL severity but tow_required=false")
+                corrections.append("Should be tow_required=true")
 
-    elif msg.severity == "NORMAL":
-        if not msg.safe_to_drive:
-            issues.append("NORMAL severity but safe_to_drive=false (inconsistent)")
-            msg.severity = "WARNING"
-            final_status = "HEALTHY_CORRECTED"
+        elif severity == "WARNING":
+            # Warnings typically allow driving
+            if not msg.safety.safe_to_drive:
+                issues.append("WARNING severity but safe_to_drive=false")
+                corrections.append("WARNING should allow driving in most cases")
 
-    response = VerificationResponse(
-        request_id=msg.request_id,
-        vehicle_id=msg.vehicle_id,
+        elif severity == "NORMAL":
+            if not msg.safety.safe_to_drive:
+                issues.append("NORMAL severity but safe_to_drive=false")
+                corrections.append("NORMAL should have safe_to_drive=true")
+
+        # Check maintenance urgency matches severity
+        if msg.maintenance:
+            if severity == "CRITICAL" and msg.maintenance.urgency != "IMMEDIATE":
+                issues.append(f"CRITICAL diagnosis but maintenance urgency={msg.maintenance.urgency}")
+                corrections.append("CRITICAL should have urgency=IMMEDIATE")
+
+            elif severity == "WARNING" and msg.maintenance.urgency == "ROUTINE":
+                issues.append(f"WARNING diagnosis but maintenance urgency=ROUTINE")
+                corrections.append("WARNING should have urgency=SOON or IMMEDIATE")
+
+    response = VerificationMessage(
         verified=len(issues) == 0,
         issues=issues,
-        final_status=final_status
+        corrections=corrections
     )
 
+    logger.info(f"[VERIFICATION] {msg.request_id} → verified={response.verified}, issues={len(issues)}")
     await ctx.send(sender, response)
+
+
+@agent.on_event("startup")
+async def startup(ctx: Context):
+    """Log startup."""
+    logger.info("=" * 60)
+    logger.info("Verification Agent started")
+    logger.info(f"Agent Name: {ctx.agent.name}")
+    logger.info(f"Agent Address: {ctx.agent.address}")
+    logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     agent.run()

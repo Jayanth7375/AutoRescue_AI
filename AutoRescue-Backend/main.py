@@ -88,39 +88,38 @@ async def diagnose(telemetry: VehicleTelemetry) -> DiagnosticResult:
 @app.post("/api/autorescue/check", response_model=AutoRescueApiResponse)
 async def autorescue_check(request: AutoRescueApiRequest):
     """
-    Direct 4-agent AutoRescue diagnostic check (stable demo mode).
+    Phase 9 AutoRescue diagnostic check - Real 10-Agent Orchestration.
 
-    Gateway directly coordinates:
-    - Diagnostic Agent (telemetry analysis)
-    - Service Agent (service centre finder)
-    - Rescue Agent (roadside assistance)
+    Coordinates all 10 agents:
+    - Telemetry Validation
+    - Diagnostic Analysis
+    - Safety Determination
+    - Maintenance Recommendation
+    - Service Centre Search (conditional)
+    - Rescue Assessment (conditional)
+    - Notifications
+    - AI Explanation
+    - Verification
+    - Orchestrator Coordination
     """
     try:
         from agents.messages import (
-            VehicleTelemetryMessage,
-            DiagnosticResponseMessage,
-            ServiceRequestMessage,
-            ServiceResponseMessage,
-            RescueRequestMessage,
-            RescueResponseMessage,
+            AutoRescueRequestMessage,
+            AutoRescueResponseMessageExtended,
             DiagnosisSummary,
             RescueSummary,
         )
 
         request_id = str(uuid4())
-        logger.info(f"[GATEWAY-DEMO] Request {request_id} received")
+        logger.info(f"[GATEWAY-P9] Request {request_id} received")
 
-        # Get agent addresses
-        diag_addr = os.getenv("DIAGNOSTIC_AGENT_ADDRESS")
-        svc_addr = os.getenv("SERVICE_AGENT_ADDRESS")
-        resc_addr = os.getenv("RESCUE_AGENT_ADDRESS")
+        # Get orchestrator agent address
+        orch_addr = os.getenv("ORCHESTRATOR_AGENT_ADDRESS")
+        if not orch_addr:
+            raise ValueError("ORCHESTRATOR_AGENT_ADDRESS not configured")
 
-        if not diag_addr:
-            raise ValueError("DIAGNOSTIC_AGENT_ADDRESS not configured")
-
-        # Step 1: Call Diagnostic Agent
-        logger.info(f"[GATEWAY-DEMO] {request_id} → DIAGNOSTIC")
-        diag_msg = VehicleTelemetryMessage(
+        # Build orchestrator request
+        orch_request = AutoRescueRequestMessage(
             request_id=request_id,
             vehicle_id=request.vehicle_id,
             engine_temperature=request.engine_temperature,
@@ -130,239 +129,127 @@ async def autorescue_check(request: AutoRescueApiRequest):
             rear_left_tyre_psi=request.rear_left_tyre_psi,
             rear_right_tyre_psi=request.rear_right_tyre_psi,
             coolant_level=request.coolant_level,
+            latitude=request.latitude,
+            longitude=request.longitude,
         )
 
+        logger.info(f"[GATEWAY-P9] {request_id} → ORCHESTRATOR (10-agent)")
         try:
-            diag_result = await send_sync_message(
-                destination=diag_addr,
-                message=diag_msg,
-                response_type=DiagnosticResponseMessage,
-                timeout=30,
+            result = await send_sync_message(
+                destination=orch_addr,
+                message=orch_request,
+                response_type=AutoRescueResponseMessageExtended,
+                timeout=60,
             )
         except Exception as e:
-            logger.error(f"[GATEWAY-DEMO] {request_id}: Diagnostic communication error: {e}")
-            diag_result = None
-
-        if not isinstance(diag_result, DiagnosticResponseMessage):
-            logger.error(f"[GATEWAY-DEMO] {request_id}: Diagnostic returned {type(diag_result).__name__ if diag_result else 'None'}")
+            logger.error(f"[GATEWAY-P9] {request_id}: Orchestrator communication error: {e}")
             raise HTTPException(
                 status_code=503,
-                detail="Diagnostic service temporarily unavailable. Please try again."
+                detail="AutoRescue orchestration service temporarily unavailable. Please try again."
             )
 
-        logger.info(f"[GATEWAY-DEMO] {request_id} ← DIAGNOSTIC: {diag_result.severity}")
+        if not isinstance(result, AutoRescueResponseMessageExtended):
+            logger.error(f"[GATEWAY-P9] {request_id}: Orchestrator returned {type(result).__name__ if result else 'None'}")
+            raise HTTPException(
+                status_code=503,
+                detail="Orchestrator service returned invalid response."
+            )
 
-        # Initialize response data
-        service_centres = []
-        rescue = None
-        status = "HEALTHY" if diag_result.severity == "NORMAL" else (
-            "SERVICE_RECOMMENDED" if diag_result.severity == "WARNING" else "ASSISTANCE_REQUIRED"
+        logger.info(f"[GATEWAY-P9] {request_id} ← ORCHESTRATOR: {result.status}")
+
+        # Map status string
+        status = "HEALTHY" if result.status == "HEALTHY" else (
+            "SERVICE_RECOMMENDED" if result.status == "WARNING" else (
+                "ASSISTANCE_REQUIRED" if result.status == "CRITICAL" else "ERROR"
+            )
         )
-        message = "Vehicle systems are operating within normal ranges." if diag_result.severity == "NORMAL" else "Vehicle requires attention"
-        navigation_allowed = diag_result.safe_to_drive
+        navigation_allowed = result.navigation_allowed
+        service_centres = result.service_centres
+        rescue = None
 
-        # Step 2: Call Service Agent if needed
-        if diag_result.severity != "NORMAL" and svc_addr:
-            logger.info(f"[GATEWAY-DEMO] {request_id} → SERVICE")
-            svc_msg = ServiceRequestMessage(
-                request_id=request_id,
-                vehicle_id=request.vehicle_id,
-                issue=diag_result.issue,
-                affected_component=diag_result.affected_component,
-                severity=diag_result.severity,
-                safe_to_drive=diag_result.safe_to_drive,
-                latitude=request.latitude,
-                longitude=request.longitude,
+        if result.rescue:
+            rescue = RescueSummary(
+                assistance_required=result.rescue.assistance_required,
+                assistance_type=result.rescue.assistance_type,
+                priority=result.rescue.priority,
+                can_drive=result.rescue.can_drive,
+                tow_required=result.rescue.tow_required,
+                instructions=result.rescue.instructions,
+                reason=result.rescue.reason,
+                destination_name=result.rescue.destination_name,
+                destination_place_id=result.rescue.destination_place_id,
+                estimated_dispatch_minutes=result.rescue.estimated_dispatch_minutes,
             )
+            navigation_allowed = False
+            message = result.rescue.instructions
+        else:
+            message = result.message
 
-            svc_result = await send_sync_message(
-                destination=svc_addr,
-                message=svc_msg,
-                response_type=ServiceResponseMessage,
-                timeout=30,
-            )
-
-            if isinstance(svc_result, ServiceResponseMessage):
-                logger.info(f"[GATEWAY-DEMO] {request_id} ← SERVICE: {len(svc_result.centres)} centres")
-                service_centres = svc_result.centres
-                message = f"Found {len(svc_result.centres)} service centres nearby."
-
-        # Step 3: Call Rescue Agent if CRITICAL
-        if diag_result.severity == "CRITICAL" and resc_addr:
-            logger.info(f"[GATEWAY-DEMO] {request_id} → RESCUE")
-            resc_msg = RescueRequestMessage(
-                request_id=request_id,
-                vehicle_id=request.vehicle_id,
-                issue=diag_result.issue,
-                affected_component=diag_result.affected_component,
-                severity=diag_result.severity,
-                safe_to_drive=diag_result.safe_to_drive,
-                latitude=request.latitude,
-                longitude=request.longitude,
-            )
-
-            resc_result = await send_sync_message(
-                destination=resc_addr,
-                message=resc_msg,
-                response_type=RescueResponseMessage,
-                timeout=30,
-            )
-
-            if isinstance(resc_result, RescueResponseMessage):
-                logger.info(f"[GATEWAY-DEMO] {request_id} ← RESCUE")
-                rescue = RescueSummary(
-                    assistance_required=resc_result.assistance_required,
-                    assistance_type=resc_result.assistance_type,
-                    priority=resc_result.priority,
-                    can_drive=resc_result.can_drive,
-                    tow_required=resc_result.tow_required,
-                    instructions=resc_result.instructions,
-                    reason=resc_result.reason,
-                    destination_name=resc_result.destination_name,
-                )
-                navigation_allowed = False
-                message = resc_result.instructions
-
-        # Build internal response message
-        result = AutoRescueResponseMessage(
-            request_id=request_id,
-            vehicle_id=request.vehicle_id,
+        # Build internal response message for compatibility
+        result_msg = AutoRescueResponseMessage(
+            request_id=result.request_id,
+            vehicle_id=result.vehicle_id,
             status=status,
-            diagnosis=DiagnosisSummary(
-                issue=diag_result.issue,
-                affected_component=diag_result.affected_component,
-                severity=diag_result.severity,
-                safe_to_drive=diag_result.safe_to_drive,
-                recommendation=diag_result.recommendation,
-            ),
+            diagnosis=result.diagnosis,
             service_centres=service_centres,
             navigation_allowed=navigation_allowed,
             rescue=rescue,
             message=message,
         )
 
-        logger.info(f"[GATEWAY-DEMO] {request_id} → CLIENT: {status}")
+        logger.info(f"[GATEWAY-P9] {request_id} → CLIENT: {status}")
 
-        if isinstance(result, AutoRescueResponseMessage):
-            service_centres = [
-                ServiceCentreApiResponse(
-                    place_id=centre.place_id,
-                    name=centre.name,
-                    address=centre.address,
-                    latitude=centre.latitude,
-                    longitude=centre.longitude,
-                    rating=centre.rating,
-                    review_count=centre.review_count,
-                    is_open=centre.is_open,
-                    distance_km=centre.distance_km,
-                    priority_score=centre.priority_score,
-                    recommendation_reason=centre.recommendation_reason,
-                )
-                for centre in result.service_centres
-            ]
+        # Convert internal response to API response
+        service_centres_api = [
+            ServiceCentreApiResponse(
+                place_id=centre.place_id,
+                name=centre.name,
+                address=centre.address,
+                latitude=centre.latitude,
+                longitude=centre.longitude,
+                rating=centre.rating,
+                review_count=centre.review_count,
+                is_open=centre.is_open,
+                distance_km=centre.distance_km,
+                priority_score=centre.priority_score,
+                recommendation_reason=centre.recommendation_reason,
+            )
+            for centre in service_centres
+        ]
 
-            rescue = None
-            if result.rescue:
-                rescue = RescueApiResponse(
-                    assistance_required=result.rescue.assistance_required,
-                    assistance_type=result.rescue.assistance_type,
-                    priority=result.rescue.priority,
-                    can_drive=result.rescue.can_drive,
-                    tow_required=result.rescue.tow_required,
-                    instructions=result.rescue.instructions,
-                    reason=result.rescue.reason,
-                    destination_name=result.rescue.destination_name,
-                    destination_place_id=result.rescue.destination_place_id,
-                    estimated_dispatch_minutes=result.rescue.estimated_dispatch_minutes,
-                )
-
-            api_response = AutoRescueApiResponse(
-                request_id=result.request_id,
-                vehicle_id=result.vehicle_id,
-                status=result.status,
-                diagnosis=DiagnosisApiResponse(
-                    issue=result.diagnosis.issue,
-                    affected_component=result.diagnosis.affected_component,
-                    severity=result.diagnosis.severity,
-                    safe_to_drive=result.diagnosis.safe_to_drive,
-                    recommendation=result.diagnosis.recommendation,
-                ),
-                service_centres=service_centres,
-                navigation_allowed=result.navigation_allowed,
-                rescue=rescue,
-                message=result.message,
+        rescue_api = None
+        if rescue:
+            rescue_api = RescueApiResponse(
+                assistance_required=rescue.assistance_required,
+                assistance_type=rescue.assistance_type,
+                priority=rescue.priority,
+                can_drive=rescue.can_drive,
+                tow_required=rescue.tow_required,
+                instructions=rescue.instructions,
+                reason=rescue.reason,
+                destination_name=rescue.destination_name,
+                destination_place_id=rescue.destination_place_id,
+                estimated_dispatch_minutes=rescue.estimated_dispatch_minutes,
             )
 
-            logger.info(f"[GATEWAY] {request_id} → CLIENT: {result.status}")
-            return api_response
+        api_response = AutoRescueApiResponse(
+            request_id=result_msg.request_id,
+            vehicle_id=result_msg.vehicle_id,
+            status=status,
+            diagnosis=DiagnosisApiResponse(
+                issue=result_msg.diagnosis.issue,
+                affected_component=result_msg.diagnosis.affected_component,
+                severity=result_msg.diagnosis.severity,
+                safe_to_drive=result_msg.diagnosis.safe_to_drive,
+                recommendation=result_msg.diagnosis.recommendation,
+            ),
+            service_centres=service_centres_api,
+            navigation_allowed=navigation_allowed,
+            rescue=rescue_api,
+            message=message,
+        )
 
-        elif isinstance(result, AutoRescueErrorMessage):
-            logger.error(f"[GATEWAY] {request_id}: Orchestrator error - {result.error}")
-            raise HTTPException(status_code=500, detail=result.error)
-
-        elif isinstance(result, MsgStatus):
-            logger.error(f"[GATEWAY] {request_id}: Communication failed - {result.detail}")
-            raise HTTPException(
-                status_code=503,
-                detail="AutoRescue orchestration service is unavailable",
-            )
-
-        else:
-            logger.error(f"[GATEWAY] {request_id}: Unexpected response type={type(result).__name__}")
-            if isinstance(result, dict):
-                try:
-                    response = AutoRescueResponseMessage(**result)
-                    api_response = AutoRescueApiResponse(
-                        request_id=response.request_id,
-                        vehicle_id=response.vehicle_id,
-                        status=response.status,
-                        diagnosis=DiagnosisApiResponse(
-                            issue=response.diagnosis.issue,
-                            affected_component=response.diagnosis.affected_component,
-                            severity=response.diagnosis.severity,
-                            safe_to_drive=response.diagnosis.safe_to_drive,
-                            recommendation=response.diagnosis.recommendation,
-                        ),
-                        service_centres=[
-                            ServiceCentreApiResponse(
-                                place_id=centre.place_id,
-                                name=centre.name,
-                                address=centre.address,
-                                latitude=centre.latitude,
-                                longitude=centre.longitude,
-                                rating=centre.rating,
-                                review_count=centre.review_count,
-                                is_open=centre.is_open,
-                                distance_km=centre.distance_km,
-                                priority_score=centre.priority_score,
-                                recommendation_reason=centre.recommendation_reason,
-                            )
-                            for centre in response.service_centres
-                        ],
-                        navigation_allowed=response.navigation_allowed,
-                        rescue=RescueApiResponse(
-                            assistance_required=response.rescue.assistance_required,
-                            assistance_type=response.rescue.assistance_type,
-                            priority=response.rescue.priority,
-                            can_drive=response.rescue.can_drive,
-                            tow_required=response.rescue.tow_required,
-                            instructions=response.rescue.instructions,
-                            reason=response.rescue.reason,
-                            destination_name=response.rescue.destination_name,
-                            destination_place_id=response.rescue.destination_place_id,
-                            estimated_dispatch_minutes=response.rescue.estimated_dispatch_minutes,
-                        ) if response.rescue else None,
-                        message=response.message,
-                    )
-                    logger.info(f"[GATEWAY] {request_id} → CLIENT: {response.status} (recovered)")
-                    return api_response
-                except Exception as e:
-                    logger.error(f"[GATEWAY] {request_id}: Failed to parse dict: {e}")
-
-            raise HTTPException(
-                status_code=500,
-                detail=f"Invalid response from orchestration: {type(result).__name__}",
-            )
+        return api_response
 
     except ValidationError as e:
         logger.error(f"[GATEWAY] Validation error: {str(e)}")
