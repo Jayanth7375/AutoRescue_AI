@@ -380,6 +380,58 @@ async def test_verification():
         traceback.print_exc()
         return False
 
+def test_diagnostic():
+    """Test Diagnostic function directly (synchronous, not a uAgent)."""
+    print("\n[TEST] Diagnostic Function (Local)")
+    print("-" * 70)
+
+    try:
+        from models.telemetry import VehicleTelemetry
+        from tools.diagnostic_rules import diagnose_vehicle
+
+        # Test HEALTHY
+        telemetry = VehicleTelemetry(
+            vehicle_id="TEST-HEALTHY",
+            engine_temperature=95.0,
+            battery_voltage=12.7,
+            front_left_tyre_psi=32.0,
+            front_right_tyre_psi=32.0,
+            rear_left_tyre_psi=32.0,
+            rear_right_tyre_psi=32.0,
+            coolant_level=75.0,
+        )
+
+        result = diagnose_vehicle(telemetry)
+        print(f"  HEALTHY input → severity={result.severity.value}")
+        if result.severity.value != "NORMAL":
+            print(f"  ✗ FAIL - Expected NORMAL, got {result.severity.value}")
+            return False
+
+        # Test WARNING
+        telemetry.front_left_tyre_psi = 28.0
+        result = diagnose_vehicle(telemetry)
+        print(f"  WARNING input → severity={result.severity.value}")
+        if result.severity.value != "WARNING":
+            print(f"  ✗ FAIL - Expected WARNING, got {result.severity.value}")
+            return False
+
+        # Test CRITICAL
+        telemetry.engine_temperature = 122.0
+        result = diagnose_vehicle(telemetry)
+        print(f"  CRITICAL input → severity={result.severity.value}")
+        if result.severity.value != "CRITICAL":
+            print(f"  ✗ FAIL - Expected CRITICAL, got {result.severity.value}")
+            return False
+
+        print("  ✓ PASS")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ FAIL - {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 async def main():
     """Run all tests in a single async context."""
     results = []
@@ -416,6 +468,15 @@ async def main():
     return passed == len(results)
 
 if __name__ == "__main__":
-    # FIXED: Use asyncio.run() to run main async function
+    print("\n" + "=" * 70)
+    print("Specialist Agent Communication Tests (9 total)")
+    print("=" * 70)
+
+    # Test Diagnostic first (synchronous local function)
+    diagnostic_result = test_diagnostic()
+
+    # Then test the async agents
     success = asyncio.run(main())
-    exit(0 if success else 1)
+
+    # If either failed, report failure
+    exit(0 if (diagnostic_result and success) else 1)
