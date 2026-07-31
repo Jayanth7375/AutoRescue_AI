@@ -338,3 +338,196 @@ class AutoRescueResponseMessageExtended(Model):
     explanation: ExplanationMessage | None = None
     verification: VerificationMessage | None = None
     agent_trace: list[AgentTraceEntry] = []
+
+
+# ===== PHASE 10: NEW 10 AGENT MESSAGES (Agents 11-20) =====
+
+class VehicleProfileRequest(Model):
+    """Request for vehicle profile information."""
+    request_id: str
+    vehicle_id: str
+
+
+class VehicleProfileResponse(Model):
+    """Vehicle profile with powertrain and specifications."""
+    request_id: str
+    vehicle_id: str
+    manufacturer: str | None = None
+    model: str | None = None
+    year: int | None = None
+    vehicle_type: str = "UNKNOWN"  # CAR, SUV, TRUCK, etc.
+    powertrain: str = "UNKNOWN"  # ICE, EV, HYBRID, UNKNOWN
+    fuel_type: str | None = None  # PETROL, DIESEL, etc.
+    battery_type: str | None = None  # 12V, 48V, TRACTION_PACK, etc.
+    tyre_specification: str | None = None
+    odometer_km: float | None = None
+    last_service_km: float | None = None
+    service_interval_km: float | None = None
+    profile_found: bool = False
+
+
+class BatteryHealthRequest(Model):
+    """Request battery health evaluation."""
+    request_id: str
+    vehicle_id: str
+    battery_voltage: float
+    powertrain: str  # Context from vehicle profile
+
+
+class BatteryHealthResponse(Model):
+    """Battery health assessment."""
+    request_id: str
+    vehicle_id: str
+    status: str  # NORMAL, WEAK, CRITICAL, UNKNOWN
+    battery_voltage: float
+    action: str
+    reason: str
+
+
+class TyreHealthRequest(Model):
+    """Request tyre pressure analysis."""
+    request_id: str
+    vehicle_id: str
+    front_left_tyre_psi: float
+    front_right_tyre_psi: float
+    rear_left_tyre_psi: float
+    rear_right_tyre_psi: float
+
+
+class TyreHealthResponse(Model):
+    """Tyre health assessment."""
+    request_id: str
+    vehicle_id: str
+    status: str  # NORMAL, WARNING, CRITICAL
+    affected_tyres: list[str] = []
+    minimum_psi: float
+    action: str
+    reason: str
+
+
+class EngineHealthRequest(Model):
+    """Request engine health evaluation."""
+    request_id: str
+    vehicle_id: str
+    engine_temperature: float
+    coolant_level: float
+
+
+class EngineHealthResponse(Model):
+    """Engine health assessment."""
+    request_id: str
+    vehicle_id: str
+    status: str  # NORMAL, WARNING, CRITICAL
+    engine_temperature: float
+    coolant_risk: str  # NONE, LOW, CRITICAL
+    action: str
+    reason: str
+
+
+class BreakdownClassificationRequest(Model):
+    """Request breakdown category classification."""
+    request_id: str
+    vehicle_id: str
+    selected_rescue_category: str | None = None  # User's explicit choice if any
+    diagnosis: str | None = None
+    vehicle_profile: dict | None = None
+    safety_context: dict | None = None
+
+
+class BreakdownClassificationResponse(Model):
+    """Classified breakdown category."""
+    request_id: str
+    vehicle_id: str
+    category: str  # FLAT_TYRE, BATTERY_ISSUE, ENGINE_BREAKDOWN, ACCIDENT, FUEL_NEEDED, EV_CHARGING, OTHER
+    subtype: str | None = None
+    confidence: float = 1.0
+    reason: str
+
+
+class PassengerSafetyRequest(Model):
+    """Request passenger safety assessment."""
+    request_id: str
+    vehicle_id: str
+    accident_flag: bool = False
+    passenger_injury: bool = False
+    available_context: dict | None = None
+
+
+class PassengerSafetyResponse(Model):
+    """Passenger safety assessment."""
+    request_id: str
+    vehicle_id: str
+    medical_priority: str  # NONE, MEDIUM, HIGH
+    hospital_search_required: bool = False
+    vehicle_service_priority: bool = True
+    guidance: str
+
+
+class NearbyAssistanceRequest(Model):
+    """Request nearby assistance places."""
+    request_id: str
+    vehicle_id: str
+    category: str  # EV_CHARGING, BATTERY_SERVICE, FUEL_STATION, HOSPITAL, VEHICLE_REPAIR
+    latitude: float
+    longitude: float
+    max_results: int = 10
+
+
+class NearbyAssistanceResponse(Model):
+    """Nearby assistance places."""
+    request_id: str
+    vehicle_id: str
+    category: str
+    places: list[dict] = []  # Places data from nearby service
+    count: int = 0
+    fallback: bool = False  # True if using fallback data
+
+
+class ServiceRankingRequest(Model):
+    """Request service place ranking."""
+    request_id: str
+    vehicle_id: str
+    places: list[dict]
+    assistance_category: str
+    vehicle_context: dict | None = None
+
+
+class ServiceRankingResponse(Model):
+    """Ranked service places."""
+    request_id: str
+    vehicle_id: str
+    ranked_places: list[dict] = []
+    ranking_reason: str
+
+
+class IncidentMemoryRequest(Model):
+    """Request incident memory operation."""
+    request_id: str
+    vehicle_id: str
+    operation: str  # STORE_INCIDENT, GET_RECENT, GET_REPEATED
+    incident_data: dict | None = None
+    limit: int = 10
+
+
+class IncidentMemoryResponse(Model):
+    """Incident memory data."""
+    request_id: str
+    vehicle_id: str
+    operation: str
+    incidents: list[dict] = []
+    repeated_faults: list[dict] = []
+    success: bool = True
+
+
+class AgentHealthRequest(Model):
+    """Request agent health status."""
+    request_id: str
+
+
+class AgentHealthResponse(Model):
+    """Agent health status."""
+    request_id: str
+    total_agents: int = 20
+    online: int = 0
+    agents: list[dict] = []  # [{"name": "...", "status": "ONLINE|OFFLINE|TIMEOUT"}]
+    timestamp: str | None = None
