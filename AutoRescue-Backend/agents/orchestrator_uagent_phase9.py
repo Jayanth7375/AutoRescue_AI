@@ -347,10 +347,29 @@ class Orchestrator20Agent:
         logger.info(f"[ORCH-20] {request_id} PHASE 7: Safety assessment")
 
         from agents.messages import SafetyRequest, SafetyMessage
+
+        # Build DiagnosisSummary for Safety Agent
+        if diagnosis:
+            diagnosis_summary = DiagnosisSummary(
+                issue=diagnosis.issue,
+                affected_component=diagnosis.affected_component,
+                severity=diagnosis.severity,
+                safe_to_drive=diagnosis.safe_to_drive,
+                recommendation=diagnosis.recommendation,
+            )
+        else:
+            diagnosis_summary = DiagnosisSummary(
+                issue="Unknown",
+                affected_component="vehicle",
+                severity="UNKNOWN",
+                safe_to_drive=True,
+                recommendation="Unable to determine vehicle status",
+            )
+
         safety_req = SafetyRequest(
             request_id=request_id,
             vehicle_id=vehicle_id,
-            diagnosis=diagnosis.issue if diagnosis else "Unknown",
+            diagnosis=diagnosis_summary,
         )
 
         safety_resp = None
@@ -368,12 +387,20 @@ class Orchestrator20Agent:
         logger.info(f"[ORCH-20] {request_id} PHASE 8: Maintenance planning")
 
         maintenance = None
-        if MAINTENANCE_ADDR and diagnosis:
+        if MAINTENANCE_ADDR and diagnosis and diagnosis_summary:
             from agents.messages import MaintenanceRequest, MaintenanceMessage
             maint_req = MaintenanceRequest(
                 request_id=request_id,
                 vehicle_id=vehicle_id,
-                issue=diagnosis.issue if diagnosis else "Unknown",
+                diagnosis=diagnosis_summary,
+                safety=safety_resp if safety_resp else SafetyMessage(
+                    request_id=request_id,
+                    vehicle_id=vehicle_id,
+                    safe_to_drive=True,
+                    navigation_allowed=True,
+                    tow_required=False,
+                    risk_level="NORMAL",
+                ),
             )
             maintenance = await self.call_agent(
                 "Maintenance Agent",

@@ -87,39 +87,55 @@ def http_client():
 
 def test_01_health_check(http_client):
     """Test 1: Verify FastAPI is running."""
-    response = http_client.get(HEALTH_ENDPOINT)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ok"
-    logger.info("✓ Test 1: Health check PASSED")
+    try:
+        response = http_client.get(HEALTH_ENDPOINT, timeout=5.0)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+        data = response.json()
+        assert data["status"] == "ok", f"Expected status=ok, got {data.get('status')}"
+        logger.info("✓ Test 1: Health check PASSED")
+    except Exception as e:
+        logger.error(f"✗ Test 1 FAILED: {str(e)}")
+        raise
 
 
 def test_02_normal_vehicle_check(http_client):
     """Test 2: Normal vehicle - should return HEALTHY."""
     response = http_client.post(AUTORESCUE_ENDPOINT, json=NORMAL_VEHICLE)
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
     data = response.json()
 
     # Check response structure
-    assert "status" in data
-    assert "diagnosis" in data
-    assert "agent_trace" in data
+    assert "status" in data, "Missing 'status' field"
+    assert "diagnosis" in data, "Missing 'diagnosis' field"
+    assert "agent_trace" in data, "Missing 'agent_trace' field"
 
     # For normal vehicle
-    assert data["status"] == "HEALTHY"
-    assert data["diagnosis"]["severity"] in ["NORMAL", "WARNING"]
-    assert data["navigation_allowed"] == True
+    assert data["status"] == "HEALTHY", f"Expected HEALTHY, got {data['status']}"
+    assert data["diagnosis"]["severity"] in ["NORMAL", "WARNING"], f"Unexpected severity: {data['diagnosis']['severity']}"
+    assert data["navigation_allowed"] == True, f"Expected navigation_allowed=true, got {data['navigation_allowed']}"
 
     # Check trace exists and has entries
-    assert len(data["agent_trace"]) > 0
+    trace = data["agent_trace"]
+    assert len(trace) > 5, f"Expected trace with 5+ entries, got {len(trace)}"
 
     # Verify key agents were called or skipped appropriately
-    agent_names = [a["agent"] for a in data["agent_trace"]]
-    assert "Orchestrator" in agent_names
-    assert "Verification Agent" in agent_names
+    agent_statuses = {entry["agent"]: entry["status"] for entry in trace}
+
+    # Orchestrator must not be FAILED
+    orch_status = agent_statuses.get("Orchestrator", "UNKNOWN")
+    assert orch_status != "FAILED", f"Orchestrator FAILED: {[e for e in trace if e['agent'] == 'Orchestrator']}"
+
+    # Must have completed key agents
+    assert "Diagnostic Agent" in agent_statuses, "Missing Diagnostic Agent in trace"
+    assert "Safety Agent" in agent_statuses, "Missing Safety Agent in trace"
+    assert "Verification Agent" in agent_statuses, "Missing Verification Agent in trace"
+
+    # Check statuses are valid
+    for entry in trace:
+        assert entry["status"] in ["COMPLETED", "SKIPPED", "FAILED", "FALLBACK"], f"Invalid status: {entry['status']}"
 
     logger.info("✓ Test 2: Normal vehicle check PASSED")
-    logger.info(f"  Trace entries: {len(data['agent_trace'])}")
+    logger.info(f"  Status: {data['status']}, Trace entries: {len(trace)}")
 
 
 def test_03_tyre_warning(http_client):
@@ -190,21 +206,36 @@ def test_06_invalid_telemetry(http_client):
 
 
 def test_07_agent_trace_completeness(http_client):
-    """Test 7: Verify agent trace is complete."""
+    """Test 7: Verify agent trace is complete and realistic."""
     response = http_client.post(AUTORESCUE_ENDPOINT, json=NORMAL_VEHICLE)
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
     data = response.json()
 
     trace = data["agent_trace"]
 
+    # Must have realistic trace (not just one FAILED entry)
+    assert len(trace) >= 8, f"Expected 8+ trace entries for normal check, got {len(trace)}"
+
+    # Orchestrator must not be FAILED
+    orchestrator_entry = next((e for e in trace if "Orchestrator" in e["agent"]), None)
+    assert orchestrator_entry, "Missing Orchestrator in trace"
+    assert orchestrator_entry["status"] != "FAILED", f"Orchestrator FAILED: {orchestrator_entry}"
+
+    # Count by status
+    completed = sum(1 for e in trace if e["status"] == "COMPLETED")
+    failed = sum(1 for e in trace if e["status"] == "FAILED")
+
+    assert completed >= 5, f"Expected 5+ COMPLETED, got {completed}"
+    assert failed == 0, f"Expected 0 FAILED entries, got {failed}"
+
     # Each trace entry must have required fields
     for entry in trace:
-        assert "agent" in entry
-        assert "status" in entry
-        assert "summary" in entry
-        assert entry["status"] in ["COMPLETED", "SKIPPED", "FAILED", "FALLBACK"]
+        assert "agent" in entry, f"Missing 'agent' in trace entry: {entry}"
+        assert "status" in entry, f"Missing 'status' in trace entry: {entry}"
+        assert "summary" in entry, f"Missing 'summary' in trace entry: {entry}"
+        assert entry["status"] in ["COMPLETED", "SKIPPED", "FAILED", "FALLBACK"], f"Invalid status: {entry['status']}"
 
-    logger.info(f"✓ Test 7: Agent trace completeness PASSED ({len(trace)} entries)")
+    logger.info(f"✓ Test 7: Agent trace completeness PASSED ({len(trace)} entries, {completed} completed, {failed} failed)")
     logger.info("  Trace entries:")
     for entry in trace:
         logger.info(f"    - {entry['agent']}: {entry['status']} ({entry['summary']})")
