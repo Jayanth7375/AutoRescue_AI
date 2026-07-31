@@ -208,7 +208,7 @@ class Orchestrator20Agent:
         logger.info(f"[ORCH-20] {request_id} PHASE 2: Telemetry validation")
 
         # Call Telemetry Agent
-        from agents.messages import VehicleTelemetryMessage
+        from agents.messages import VehicleTelemetryMessage, TelemetryValidationMessage
         telemetry_msg = VehicleTelemetryMessage(
             request_id=request_id,
             vehicle_id=vehicle_id,
@@ -222,8 +222,8 @@ class Orchestrator20Agent:
         )
 
         telemetry_valid = True
+        telemetry_resp = None
         if TELEMETRY_ADDR:
-            from agents.messages import TelemetryValidationMessage
             telemetry_resp = await self.call_agent(
                 "Telemetry Agent",
                 TELEMETRY_ADDR,
@@ -241,11 +241,12 @@ class Orchestrator20Agent:
 
         diagnosis = None
         if DIAGNOSTIC_ADDR:
+            from agents.messages import DiagnosticResponseMessage
             diagnosis = await self.call_agent(
                 "Diagnostic Agent",
                 DIAGNOSTIC_ADDR,
                 telemetry_msg,
-                type('DiagnosticResponseMessage', (), {})
+                DiagnosticResponseMessage
             )
         else:
             self.skip_agent("Diagnostic Agent", "Not configured")
@@ -507,7 +508,7 @@ class Orchestrator20Agent:
                 "Notification Agent",
                 NOTIFICATION_ADDR,
                 notif_req,
-                type('NotificationMessage', (), {})
+                NotificationMessage
             )
         else:
             self.skip_agent("Notification Agent", "No critical issues")
@@ -564,7 +565,10 @@ class Orchestrator20Agent:
             verif_req = VerificationRequest(
                 request_id=request_id,
                 vehicle_id=vehicle_id,
-                diagnosis=diagnosis.issue if diagnosis else "NORMAL",
+                telemetry_validation=telemetry_resp,
+                diagnosis=diagnosis_summary,
+                safety=safety_resp,
+                maintenance=maintenance,
             )
             verification = await self.call_agent(
                 "Verification Agent",
