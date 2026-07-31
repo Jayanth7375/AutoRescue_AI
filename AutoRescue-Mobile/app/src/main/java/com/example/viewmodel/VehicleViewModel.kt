@@ -75,9 +75,7 @@ class VehicleViewModel(
             RescueOption("1", "Flat Tyre", "Puncture or air replacement"),
             RescueOption("2", "Battery Issue", "Jumpstart or battery swap"),
             RescueOption("3", "Engine Breakdown", "Mechanical inspection or towing"),
-            RescueOption("4", "Accident", "Emergency response & roadside support"),
-            RescueOption("5", "Fuel Needed", "Emergency petrol delivery"),
-            RescueOption("6", "Other", "General roadside query")
+            RescueOption("4", "Fuel Needed", "Emergency petrol delivery")
         )
     )
     val rescueOptions: StateFlow<List<RescueOption>> = _rescueOptions.asStateFlow()

@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -64,7 +65,8 @@ fun AutoRescueMainApp(
         }
     }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Splash.route
+    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = currentDestination?.route ?: Screen.Splash.route
 
     val isBottomBarVisible = currentRoute in listOf(
         Screen.Home.route,
@@ -80,14 +82,13 @@ fun AutoRescueMainApp(
                 AutoRescueBottomBar(
                     currentRoute = currentRoute,
                     onNavigateToRoute = { route ->
-                        if (currentRoute != route) {
-                            navController.navigate(route) {
-                                popUpTo(Screen.Home.route) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
+                        // Always navigate, let the NavController handle the optimization
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
                             }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
                 )

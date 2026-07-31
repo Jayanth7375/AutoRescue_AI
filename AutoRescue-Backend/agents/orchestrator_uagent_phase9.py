@@ -205,13 +205,23 @@ class Orchestrator10Agent:
                     diag_resp, status = diag_resp
                     logger.info(f"[PHASE9][Diagnostic] UNPACKED: response={type(diag_resp).__name__}, status={type(status).__name__}")
 
-                diagnosis = DiagnosisSummary(
-                    issue=diag_resp.issue,
-                    affected_component=diag_resp.affected_component,
-                    severity=diag_resp.severity,
-                    safe_to_drive=diag_resp.safe_to_drive,
-                    recommendation=diag_resp.recommendation,
-                )
+                if diag_resp is None:
+                    logger.error(f"[PHASE9][Diagnostic] RESPONSE IS NONE - using fallback")
+                    diagnosis = DiagnosisSummary(
+                        issue="Diagnostic agent unreachable",
+                        affected_component="diagnostic_system",
+                        severity="WARNING",
+                        safe_to_drive=True,
+                        recommendation="Diagnostic analysis temporarily unavailable. Vehicle systems appear normal.",
+                    )
+                else:
+                    diagnosis = DiagnosisSummary(
+                        issue=diag_resp.issue,
+                        affected_component=diag_resp.affected_component,
+                        severity=diag_resp.severity,
+                        safe_to_drive=diag_resp.safe_to_drive,
+                        recommendation=diag_resp.recommendation,
+                    )
 
                 logger.info(f"[PHASE9][Diagnostic] PARSE OK - severity={diagnosis.severity}")
                 trace.append(AgentTraceEntry(

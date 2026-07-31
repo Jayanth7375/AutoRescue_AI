@@ -1,8 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +14,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,11 +29,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import com.example.model.HealthStatus
 import com.example.ui.components.AutoRescueHeader
 import com.example.ui.components.HealthProgressBar
@@ -38,6 +44,7 @@ import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
 import com.example.viewmodel.DiagnosticsViewModel
 import com.example.viewmodel.VehicleViewModel
+import com.example.utils.openTowDialer
 
 @Composable
 private fun TelemetryRow(label: String, value: String) {
@@ -76,6 +83,20 @@ fun DiagnoseScreen(
     val notifications by vehicleViewModel.notifications.collectAsState()
     val backendDiagnosticState by diagnosticsViewModel.diagnosticState.collectAsState()
     val latestTelemetry by diagnosticsViewModel.latestTelemetry.collectAsState()
+
+    // Tow Truck State
+    var showTowTruckCard by remember { mutableStateOf(false) }
+    var remainingMinutes by remember { mutableStateOf(12) }
+
+    LaunchedEffect(showTowTruckCard) {
+        if (showTowTruckCard) {
+            remainingMinutes = 12
+            while (remainingMinutes > 0) {
+                delay(1000)
+                remainingMinutes--
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -234,6 +255,54 @@ fun DiagnoseScreen(
                             text = "Run Vehicle Check",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            // Tow Truck Service Button or Card
+            if (showTowTruckCard) {
+                item {
+                    TowTruckDetailsCard(
+                        remainingMinutes = remainingMinutes,
+                        onCallClick = {
+                            Log.d("AutoRescueDebug", "Call Tow Service - from card")
+                            openTowDialer(context)
+                        },
+                        onCancel = {
+                            showTowTruckCard = false
+                            remainingMinutes = 12
+                        }
+                    )
+                }
+            } else {
+                item {
+                    Button(
+                        onClick = {
+                            Log.d("AutoRescueDebug", "Tow Service Button Clicked - DiagnoseScreen")
+                            showTowTruckCard = true
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CriticalRed,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(vertical = 14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("tow_service_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Call Tow Service: 9843398325",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -868,6 +937,252 @@ fun DiagnoseScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TowTruckDetailsCard(
+    remainingMinutes: Int,
+    onCallClick: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "tow_truck")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "truck_scale"
+    )
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(2.dp, HealthyGreen),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header with Truck Icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(HealthyGreen.copy(alpha = 0.2f), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = HealthyGreen,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer(scaleX = scale, scaleY = scale)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Tow Truck Dispatched",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "En route to your location",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Divider
+            Divider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                thickness = 1.dp
+            )
+
+            // Tow Truck Details
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WarningAmberBg, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Truck Name",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "SafeRide Tow Truck #47",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(WarningAmber.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = WarningAmber,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // ETA with Timer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PrimaryDark.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    tint = PrimaryDark,
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Estimated Arrival",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "$remainingMinutes",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryDark
+                        )
+                        Text(
+                            text = "minutes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Location
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(HealthyGreenBg, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = HealthyGreen,
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Current Location",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "You are tracked by GPS",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Action Buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onCancel,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                ) {
+                    Text(
+                        text = "Cancel",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = onCallClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CriticalRed,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Call",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Info text
+            Text(
+                text = "The tow truck driver has your contact information and will arrive shortly.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

@@ -1,0 +1,124 @@
+{
+  
+  "ecu_telemetry": [
+    {
+      "timestamp": "2026-07-26T09:15:00Z",
+      "engine_temperature_celsius": 95.0,
+      "battery_voltage_volts": 13.2,
+      "coolant_level_percent": 80.0,
+      "front_left_tyre_psi": 32,
+      "front_right_tyre_psi": 32,
+      "rear_left_tyre_psi": 26,
+      "rear_right_tyre_psi": 31,
+      "rpm": 2500,
+      "speed_kmh": 60,
+      "fuel_level_percent": 75,
+      "obd_errors": [],
+      "status": "HEALTHY"
+    },
+    {
+      "timestamp": "2026-07-26T10:45:00Z",
+      "engine_temperature_celsius": 102.0,
+      "battery_voltage_volts": 13.1,
+      "coolant_level_percent": 65.0,
+      "front_left_tyre_psi": 31,
+      "front_right_tyre_psi": 32,
+      "rear_left_tyre_psi": 29,
+      "rear_right_tyre_psi": 26,
+      "rpm": 3200,
+      "speed_kmh": 80,
+      "fuel_level_percent": 68,
+      "status": "WARNING"
+    },
+    {
+      "timestamp": "2026-07-26T11:20:00Z",
+      "engine_temperature_celsius": 108.0,
+      "battery_voltage_volts": 13.0,
+      "coolant_level_percent": 55.0,
+      "front_left_tyre_psi": 31,
+      "front_right_tyre_psi": 32,
+      "rear_left_tyre_psi": 28,
+      "rear_right_tyre_psi": 26,
+      "rpm": 3500,
+      "speed_kmh": 85,
+      "fuel_level_percent": 62,
+      "obd_errors": [
+        "P0128: Coolant Thermostat",
+        "P0133: O2 Sensor Circuit"
+      ],
+      "status": "WARNING"
+    },
+    {
+      "timestamp": "2026-07-26T12:00:00Z",
+      "engine_temperature_celsius": 118.0,
+      "battery_voltage_volts": 12.8,
+      "coolant_level_percent": 45.0,
+      "front_left_tyre_psi": 26,
+      "front_right_tyre_psi": 31,
+      "rear_left_tyre_psi": 27,
+      "rear_right_tyre_psi": 29,
+      "rpm": 4000,
+      "speed_kmh": 95,
+      "fuel_level_percent": 55,
+      "obd_errors": [
+        "P0128: Coolant Thermostat (Persistent)",
+        "P0217: Engine Over Temperature",
+        "P0133: O2 Sensor Circuit",
+        "P0260: Random Multiple Cylinder Misfire"
+      ],
+      "status": "CRITICAL"
+    },
+    {
+      "timestamp": "2026-07-26T12:15:00Z",
+      "engine_temperature_celsius": 125.0,
+      "battery_voltage_volts": 12.5,
+      "coolant_level_percent": 26.0,
+      "front_left_tyre_psi": 28,
+      "front_right_tyre_psi": 26,
+      "rear_left_tyre_psi": 26,
+      "rear_right_tyre_psi": 28,
+      "rpm": 5000,
+      "speed_kmh": 100,
+      "fuel_level_percent": 48,
+      "obd_errors": [
+        "P0128: Coolant Thermostat (Persistent)",
+        "P0217: Engine Over Temperature (Persistent)",
+        "P0218: Transmission Over Temperature",
+        "P0133: O2 Sensor Circuit",
+        "P0260: Random Multiple Cylinder Misfire (Persistent)"
+      ],
+      "status": "CRITICAL_OVERHEATING"
+    }
+  ],
+  "diagnostic_summary": {
+    "total_readings": 5,
+    "time_span_minutes": 60,
+    "max_engine_temp": 125.0,
+    "min_engine_temp": 95.0,
+    "max_battery_voltage": 13.2,
+    "min_battery_voltage": 12.5,
+    "lowest_coolant_level": 26.0,
+    "lowest_tyre_pressure": 26,
+    "severity_progression": "HEALTHY -> WARNING -> WARNING -> CRITICAL -> CRITICAL_OVERHEATING",
+    "primary_issue": "Engine Overheating",
+    "secondary_issues": ["Coolant Level Low", "Battery Voltage Dropping", "Tyre Pressure Dropping", "Transmission Temperature Rising"]
+  },
+  "recommendations": {
+    "immediate_action": "STOP VEHICLE SAFELY - Engine is critically overheating",
+    "action_items": [
+      "Stop the vehicle in a safe location immediately",
+      "Turn off the engine",
+      "Allow engine to cool for at least 26 minutes before restart",
+      "Check coolant level and top up if needed",
+      "Inspect cooling system for leaks",
+      "Check thermostat functionality",
+      "Verify radiator fan operation",
+      "Inspect hoses and connections for damage",
+      "Have transmission fluid checked",
+      "Schedule immediate service with authorized Tata dealer"
+    ],
+    "safe_to_drive": false,
+    "tow_required": true,
+    "estimated_repair_time": "2-4 hours"
+  }
+}

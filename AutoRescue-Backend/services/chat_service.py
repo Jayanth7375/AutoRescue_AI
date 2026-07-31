@@ -92,11 +92,17 @@ async def chat_with_autorescue(request: ChatRequest) -> ChatResponse:
         )
 
         # Initialize Groq LLM
+        model = os.getenv("CHATBOT_MODEL", "llama-3.1-8b-instant")
+        temperature = float(os.getenv("CHATBOT_TEMPERATURE", "0.7"))
+        max_tokens = int(os.getenv("CHATBOT_MAX_TOKENS", "500"))
+
+        logger.info(f"[CHAT] Initializing ChatGroq with model={model}, temp={temperature}, tokens={max_tokens}")
+
         llm = ChatGroq(
             groq_api_key=groq_api_key,
-            model_name=os.getenv("CHATBOT_MODEL", "mixtral-8x7b-32768"),
-            temperature=float(os.getenv("CHATBOT_TEMPERATURE", "0.7")),
-            max_tokens=int(os.getenv("CHATBOT_MAX_TOKENS", "500")),
+            model_name=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
         # Build messages

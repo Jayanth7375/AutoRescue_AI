@@ -5,8 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.util.Log
 import com.example.model.NearbyPlace
-import com.example.model.NearbyPlacesResponse
-import com.example.repository.LocationRepository
 import com.example.repository.NearbyPlacesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +34,6 @@ data class RescueState(
 )
 
 class RescueViewModel(
-    private val locationRepository: LocationRepository = LocationRepository(),
     private val nearbyPlacesRepository: NearbyPlacesRepository = NearbyPlacesRepository()
 ) : ViewModel() {
 
@@ -51,12 +48,6 @@ class RescueViewModel(
                     it.copy(
                         selectedRescueCategory = category,
                         currentFlow = "BATTERY_SELECTION"
-                    )
-                }
-                "ACCIDENT" -> {
-                    it.copy(
-                        selectedRescueCategory = category,
-                        currentFlow = "ACCIDENT_CHECK"
                     )
                 }
                 else -> {
@@ -80,17 +71,12 @@ class RescueViewModel(
         }
     }
 
-    fun selectAccidentInjuryResponse(hasInjury: Boolean) {
-        Log.d("RescueViewModel", "Accident injury response: $hasInjury")
+    fun selectFuelStation() {
+        Log.d("RescueViewModel", "Selected fuel station search")
         _rescueState.update {
             it.copy(
-                passengerInjury = hasInjury,
-                currentFlow = if (hasInjury) {
-                    "NEARBY_PLACES"
-                } else {
-                    "RESULT" // Continue with existing accident flow
-                },
-                placesCategory = if (hasInjury) "HOSPITAL" else null
+                currentFlow = "NEARBY_PLACES",
+                placesCategory = "FUEL_STATION"
             )
         }
     }
@@ -175,8 +161,37 @@ class RescueViewModel(
                 batteryAssistanceType = null,
                 passengerInjury = null,
                 nearbyPlaces = emptyList(),
-                placesError = null
+                placesError = null,
+                isLoadingPlaces = false
             )
+        }
+    }
+
+    fun handleBack(): Boolean {
+        val currentFlow = _rescueState.value.currentFlow
+        return when (currentFlow) {
+            "NEARBY_PLACES" -> {
+                val selectedCategory = _rescueState.value.selectedRescueCategory
+                when (selectedCategory) {
+                    "BATTERY_ISSUE" -> {
+                        goBackToBatterySelection()
+                        true
+                    }
+                    else -> {
+                        goBackToSelection()
+                        true
+                    }
+                }
+            }
+            "BATTERY_SELECTION" -> {
+                goBackToSelection()
+                true
+            }
+            "RESULT" -> {
+                resetFlow()
+                true
+            }
+            else -> false
         }
     }
 
@@ -185,9 +200,9 @@ class RescueViewModel(
         _rescueState.update {
             it.copy(
                 currentFlow = "BATTERY_SELECTION",
-                batteryAssistanceType = null,
                 nearbyPlaces = emptyList(),
-                placesError = null
+                placesError = null,
+                isLoadingPlaces = false
             )
         }
     }
@@ -197,7 +212,6 @@ class RescueViewModel(
             "EV_CHARGING" -> "No EV charging stations were found within the current search area."
             "BATTERY_SERVICE" -> "No nearby vehicle repair services were found."
             "FUEL_STATION" -> "No fuel stations were found within the current search area."
-            "HOSPITAL" -> "No hospitals were found within the current search area."
             else -> "No results found in this area."
         }
     }
@@ -207,7 +221,6 @@ class RescueViewModel(
             "EV_CHARGING" -> "Nearby EV Charging Stations"
             "BATTERY_SERVICE" -> "Nearby Battery Assistance"
             "FUEL_STATION" -> "Nearby Fuel Stations"
-            "HOSPITAL" -> "Nearby Hospitals"
             else -> "Nearby Results"
         }
     }
@@ -217,7 +230,6 @@ class RescueViewModel(
             "EV_CHARGING" -> "Finding nearby EV charging stations..."
             "BATTERY_SERVICE" -> "Finding nearby battery services..."
             "FUEL_STATION" -> "Finding nearby fuel stations..."
-            "HOSPITAL" -> "Finding nearby hospitals..."
             else -> "Searching nearby places..."
         }
     }

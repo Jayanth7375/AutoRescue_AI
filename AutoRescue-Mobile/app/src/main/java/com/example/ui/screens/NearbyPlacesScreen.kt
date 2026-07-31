@@ -67,39 +67,6 @@ fun NearbyPlacesScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp)
         ) {
-            // Passenger Safety Warning for Hospitals
-            if (placesCategory == "HOSPITAL") {
-                item {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = CriticalRedBg
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            CriticalRed.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "⚠ Passenger Injury Reported",
-                                fontWeight = FontWeight.Bold,
-                                color = CriticalRedDark,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Seek appropriate emergency assistance if immediate medical attention is required.",
-                                fontSize = 13.sp,
-                                color = CriticalRedDark.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
-            }
 
             // Loading State
             if (isLoading) {
@@ -152,7 +119,6 @@ fun NearbyPlacesScreen(
                                     "EV_CHARGING" -> "EV Charging Stations"
                                     "BATTERY_SERVICE" -> "Car Battery Service"
                                     "FUEL_STATION" -> "Petrol Pumps"
-                                    "HOSPITAL" -> "Hospitals"
                                     else -> "Nearby Places"
                                 }
                                 val intent = Intent(

@@ -2,14 +2,13 @@ package com.example.ui.screens
 
 import android.content.pm.PackageManager
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
@@ -20,14 +19,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.RescueOption
-import com.example.ui.components.AccidentInjuryDialog
 import com.example.ui.components.AutoRescueHeader
 import com.example.ui.components.BatteryAssistanceSheet
 import com.example.ui.components.NearbyServiceCentresCard
@@ -54,9 +55,6 @@ fun RescueScreen(
     val notifications by vehicleViewModel.notifications.collectAsState()
     val locationUiState by locationViewModel.uiState.collectAsState()
     val backendResponse = diagnosticsViewModel.diagnosticState.collectAsState().value.backendResponse
-
-    var showBatterySheet by remember { mutableStateOf(false) }
-    var showAccidentDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -90,33 +88,27 @@ fun RescueScreen(
         }
     }
 
+    // Show sheets/dialogs based on flow state, not local state
+    val showBatterySheet = rescueState.currentFlow == "BATTERY_SELECTION"
+
     // Dialog states
     if (showBatterySheet) {
         BatteryAssistanceSheet(
             onEvChargingSelected = {
                 rescueViewModel.selectBatteryAssistanceType("EV_CHARGING")
-                showBatterySheet = false
             },
             onVehicleBatterySelected = {
                 rescueViewModel.selectBatteryAssistanceType("VEHICLE_BATTERY_ISSUE")
-                showBatterySheet = false
             },
-            onDismiss = { showBatterySheet = false }
+            onDismiss = {
+                rescueViewModel.goBackToSelection()
+            }
         )
     }
 
-    if (showAccidentDialog) {
-        AccidentInjuryDialog(
-            onYesSelected = {
-                rescueViewModel.selectAccidentInjuryResponse(true)
-                showAccidentDialog = false
-            },
-            onNoSelected = {
-                rescueViewModel.selectAccidentInjuryResponse(false)
-                showAccidentDialog = false
-            },
-            onDismiss = { showAccidentDialog = false }
-        )
+    // Handle back button for Rescue internal flow
+    BackHandler(enabled = rescueState.currentFlow != "CATEGORY_SELECTION") {
+        rescueViewModel.handleBack()
     }
 
     // Render based on current flow
@@ -129,15 +121,10 @@ fun RescueScreen(
                     when (category.title) {
                         "Battery Issue" -> {
                             rescueViewModel.selectRescueCategory("BATTERY_ISSUE")
-                            showBatterySheet = true
-                        }
-                        "Accident" -> {
-                            rescueViewModel.selectRescueCategory("ACCIDENT")
-                            showAccidentDialog = true
                         }
                         "Fuel Needed" -> {
                             rescueViewModel.selectRescueCategory("FUEL_NEEDED")
-                            rescueViewModel.selectBatteryAssistanceType("FUEL_STATION")
+                            rescueViewModel.selectFuelStation()
                         }
                         "Flat Tyre" -> {
                             rescueViewModel.selectRescueCategory("FLAT_TYRE")
@@ -145,38 +132,35 @@ fun RescueScreen(
                         "Engine Breakdown" -> {
                             rescueViewModel.selectRescueCategory("ENGINE_BREAKDOWN")
                         }
-                        else -> {
-                            rescueViewModel.selectRescueCategory("OTHER")
-                        }
                     }
                 },
                 onNotificationClick = onNavigateToNotifications,
-                onProfileClick = onNavigateToProfile
+                onProfileClick = onNavigateToProfile,
+                locationAddress = locationUiState.address,
+                isLocationLoading = locationUiState.isLoading
             )
         }
 
         "BATTERY_SELECTION" -> {
-            // Battery assistance sheet is shown above
+            // Battery assistance sheet is shown above via showBatterySheet derived from currentFlow
         }
 
         "ACCIDENT_CHECK" -> {
-            // Accident dialog is shown above
+            // Accident dialog is shown above via showAccidentDialog derived from currentFlow
         }
 
         "NEARBY_PLACES" -> {
-            val latitude = locationUiState.latitude
-            val longitude = locationUiState.longitude
+            val latitude = locationUiState.latitude ?: 0.0
+            val longitude = locationUiState.longitude ?: 0.0
 
-            if (latitude == 0.0 && longitude == 0.0) {
+            if (latitude == 0.0 || longitude == 0.0) {
                 LocationPermissionNeededScreen(onBackClick = {
                     rescueViewModel.goBackToSelection()
                 })
             } else {
                 // Trigger search on first compose
-                if (latitude != 0.0 && longitude != 0.0) {
-                    LaunchedEffect(rescueState.placesCategory) {
-                        rescueViewModel.searchNearbyPlaces(latitude, longitude, context)
-                    }
+                LaunchedEffect(rescueState.placesCategory) {
+                    rescueViewModel.searchNearbyPlaces(latitude, longitude, context)
                 }
 
                 NearbyPlacesScreen(
@@ -199,6 +183,7 @@ fun RescueScreen(
         "RESULT" -> {
             // Existing rescue result screen
             RescueResultScreen(
+                context = context,
                 backendResponse = backendResponse,
                 onBackClick = { rescueViewModel.resetFlow() },
                 onNotificationClick = onNavigateToNotifications,
@@ -214,7 +199,9 @@ private fun RescueCategorySelectionScreen(
     notifications: List<com.example.model.AlertItem>,
     onCategorySelected: (RescueOption) -> Unit,
     onNotificationClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    locationAddress: String? = null,
+    isLocationLoading: Boolean = false
 ) {
     Scaffold(
         topBar = {
@@ -282,19 +269,82 @@ private fun RescueCategorySelectionScreen(
             }
 
             item {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                if (isLocationLoading) {
+                    LocationLoadingCard()
+                } else if (!locationAddress.isNullOrEmpty()) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, HealthyGreen.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(HealthyGreen.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = HealthyGreen,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Your Location",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = locationAddress,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(rescueOptions) { option ->
-                        RescueCategoryCard(
-                            option = option,
-                            onClick = { onCategorySelected(option) }
-                        )
+                    val rows = rescueOptions.chunked(2)
+                    rows.forEach { rowOptions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowOptions.forEach { option ->
+                                Box(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    RescueCategoryCard(
+                                        option = option,
+                                        onClick = { onCategorySelected(option) }
+                                    )
+                                }
+                            }
+                            if (rowOptions.size == 1) {
+                                Spacer(
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -363,7 +413,6 @@ private fun RescueCategoryCard(
 ) {
     val (bgColor, iconColor) = when (option.title) {
         "Battery Issue" -> WarningAmberBg to WarningAmber
-        "Accident" -> CriticalRedBg to CriticalRed
         "Fuel Needed" -> HealthyGreenBg to HealthyGreen
         else -> CardSurfaceLight to PrimaryDark
     }
@@ -372,7 +421,6 @@ private fun RescueCategoryCard(
         "Flat Tyre" -> Icons.Default.TireRepair
         "Battery Issue" -> Icons.Default.BatteryAlert
         "Engine Breakdown" -> Icons.Default.Build
-        "Accident" -> Icons.Default.Warning
         "Fuel Needed" -> Icons.Default.LocalGasStation
         else -> Icons.Default.Info
     }
@@ -416,6 +464,104 @@ private fun RescueCategoryCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+private fun LocationLoadingCard() {
+    val infiniteTransition = rememberInfiniteTransition(label = "location_loading")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "location_rotation"
+    )
+
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "location_scale"
+    )
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, HealthyGreen.copy(alpha = 0.3f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(HealthyGreen.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = HealthyGreen,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .graphicsLayer(
+                            rotationZ = rotation,
+                            scaleX = scale,
+                            scaleY = scale
+                        )
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Fetching Your Location",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(3) { index ->
+                        val delay = index * 100
+                        val dotScale by infiniteTransition.animateFloat(
+                            initialValue = 0.6f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(
+                                    durationMillis = 600,
+                                    delayMillis = delay,
+                                    easing = EaseInOutCubic
+                                ),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "dot_scale_$index"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(HealthyGreen, CircleShape)
+                                .graphicsLayer(scaleX = dotScale, scaleY = dotScale)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -471,6 +617,7 @@ private fun LocationPermissionNeededScreen(onBackClick: () -> Unit) {
 
 @Composable
 private fun RescueResultScreen(
+    context: android.content.Context,
     backendResponse: com.example.network.AutoRescueCheckResponse?,
     onBackClick: () -> Unit,
     onNotificationClick: () -> Unit,
@@ -556,24 +703,22 @@ private fun RescueResultScreen(
                         "Available Service Centres",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        modifier = Modifier.padding(top = 12.dp)
+                        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
                     )
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        items(backendResponse.serviceCentres) { centre ->
-                            ServiceCentreItem(
-                                name = centre.name,
-                                address = centre.address,
-                                distance = centre.distanceKm,
-                                rating = centre.rating,
-                                onClick = {
-                                    openServiceCentreInMaps(context, centre.latitude, centre.longitude, centre.name)
-                                }
-                            )
+                }
+
+                val centres = backendResponse.serviceCentres.orEmpty()
+                items(centres.size) { index ->
+                    val centre = centres[index]
+                    ServiceCentreItem(
+                        name = centre.name,
+                        address = centre.address,
+                        distance = centre.distanceKm,
+                        rating = centre.rating,
+                        onClick = {
+                            openServiceCentreInMaps(context, centre.latitude, centre.longitude, centre.name)
                         }
-                    }
+                    )
                 }
             }
         }

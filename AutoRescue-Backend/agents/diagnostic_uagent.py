@@ -57,19 +57,38 @@ async def handle_telemetry_query(ctx: Context, sender: str, msg: VehicleTelemetr
         # Run diagnostic analysis using existing rule engine
         result = diagnose_vehicle(telemetry)
 
-        # Convert result to response message
-        response = DiagnosticResponseMessage(
-            request_id=msg.request_id,
-            vehicle_id=msg.vehicle_id,
-            issue=result.issue,
-            affected_component=result.affected_component,
-            severity=result.severity.value,
-            safe_to_drive=result.safe_to_drive,
-            recommendation=result.recommendation,
-        )
+        if result is None:
+            logger.error(f"Diagnostic analysis returned None for request {msg.request_id}")
+            error_response = DiagnosticErrorMessage(
+                request_id=msg.request_id,
+                vehicle_id=msg.vehicle_id,
+                error="Diagnostic analysis returned no result",
+            )
+            await ctx.send(sender, error_response)
+            return
 
-        logger.info(f"Sending response for request {msg.request_id}: {result.severity.value}")
-        await ctx.send(sender, response)
+        # Convert result to response message
+        try:
+            response = DiagnosticResponseMessage(
+                request_id=msg.request_id,
+                vehicle_id=msg.vehicle_id,
+                issue=result.issue,
+                affected_component=result.affected_component,
+                severity=result.severity.value if hasattr(result.severity, 'value') else str(result.severity),
+                safe_to_drive=result.safe_to_drive,
+                recommendation=result.recommendation,
+            )
+
+            logger.info(f"Sending response for request {msg.request_id}: {result.severity}")
+            await ctx.send(sender, response)
+        except Exception as e:
+            logger.error(f"Error converting diagnostic result: {str(e)}")
+            error_response = DiagnosticErrorMessage(
+                request_id=msg.request_id,
+                vehicle_id=msg.vehicle_id,
+                error=f"Failed to convert diagnostic result: {str(e)}",
+            )
+            await ctx.send(sender, error_response)
 
     except Exception as e:
         logger.error(f"Error processing telemetry request {msg.request_id}: {str(e)}")
