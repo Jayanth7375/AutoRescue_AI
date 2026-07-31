@@ -8,7 +8,7 @@ enum class HealthStatus {
 
 data class VehicleInfo(
     val name: String = "Tata Nexon",
-    val registrationNumber: String = "TN 37 AB 1234",
+    val registrationNumber: String = "TN 38 CP 7375",
     val fuelType: String = "Petrol",
     val modelYear: String = "2024",
     val odometer: String = "12,480 km",
@@ -65,8 +65,8 @@ data class AlertItem(
 )
 
 data class UserProfile(
-    val name: String = "Alex Morgan",
-    val email: String = "alex.morgan@autorescue.ai",
+    val name: String = "ELANGOVAN",
+    val email: String = "elangovantup1973@gmail.com",
     val phone: String = "+91 98765 43210",
     val emergencyContact: String = "Priya Morgan (+91 98765 99999)",
     val address: String = "Race Course Road, Coimbatore, Tamil Nadu"

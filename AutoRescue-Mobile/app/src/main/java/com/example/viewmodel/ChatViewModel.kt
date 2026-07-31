@@ -47,7 +47,7 @@ class ChatViewModel(
         _inputText.value = text
     }
 
-    fun sendMessage(vehicleId: String = "TN37AB1234") {
+    fun sendMessage(vehicleId: String = "TN38CP7375") {
         val text = _inputText.value.trim()
         if (text.isEmpty() || _isLoading.value) return
 

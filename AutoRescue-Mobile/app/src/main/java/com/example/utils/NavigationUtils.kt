@@ -41,7 +41,7 @@ fun openServiceCentreInMaps(
 fun openTowDialer(context: Context) {
     val dialIntent = Intent(
         Intent.ACTION_DIAL,
-        Uri.parse("tel:9843398325")
+        Uri.parse("tel:7867896369")
     )
     context.startActivity(dialIntent)
 }

@@ -300,7 +300,7 @@ fun DiagnoseScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Call Tow Service: 9843398325",
+                            text = "Call Tow Service: 7867896369",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )

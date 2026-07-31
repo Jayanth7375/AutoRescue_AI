@@ -712,7 +712,7 @@ fun RescueScreen(
                                                 color = Color.White
                                             )
                                             Text(
-                                                text = "9843398325",
+                                                text = "7867896369",
                                                 fontSize = 11.sp,
                                                 color = Color.White.copy(alpha = 0.8f)
                                             )

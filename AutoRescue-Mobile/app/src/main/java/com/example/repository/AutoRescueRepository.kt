@@ -14,7 +14,7 @@ class AutoRescueRepository(
         telemetry: VehicleTelemetry,
         latitude: Double,
         longitude: Double,
-        vehicleId: String = "TN37AB1234" // Default demo vehicle
+        vehicleId: String = "TN38CP7375" // Default demo vehicle
     ): Result<AutoRescueCheckResponse> {
         return try {
             Log.d("AutoRescueDebug", "6 REPOSITORY CALLED - building request")
