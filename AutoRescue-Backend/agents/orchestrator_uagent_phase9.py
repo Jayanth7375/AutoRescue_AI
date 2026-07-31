@@ -1,33 +1,37 @@
-"""Phase 9 Production Orchestrator - Real 10-Agent Coordination."""
+"""Phase 10B Production Orchestrator - Full 20-Agent Real Coordination."""
 
 import os
 import logging
+import asyncio
 from datetime import datetime
 from uagents import Agent, Context
 from dotenv import load_dotenv
 
 from agents.messages import (
     AutoRescueRequestMessage,
-    TelemetryValidationRequest,
-    TelemetryValidationMessage,
-    SafetyRequest,
-    SafetyMessage,
-    MaintenanceRequest,
-    MaintenanceMessage,
-    NotificationRequest,
-    NotificationMessage,
-    ExplanationRequest,
-    ExplanationMessage,
-    VerificationRequest,
-    VerificationMessage,
-    AgentTraceEntry,
     AutoRescueResponseMessageExtended,
+    AgentTraceEntry,
     DiagnosisSummary,
     RescueSummary,
-    ServiceResponseMessage,
-    RescueResponseMessage,
+    VehicleProfileRequest,
+    VehicleProfileResponse,
+    BatteryHealthRequest,
+    BatteryHealthResponse,
+    TyreHealthRequest,
+    TyreHealthResponse,
+    EngineHealthRequest,
+    EngineHealthResponse,
+    BreakdownClassificationRequest,
+    BreakdownClassificationResponse,
+    PassengerSafetyRequest,
+    PassengerSafetyResponse,
+    NearbyAssistanceRequest,
+    NearbyAssistanceResponse,
+    ServiceRankingRequest,
+    ServiceRankingResponse,
+    IncidentMemoryRequest,
+    IncidentMemoryResponse,
 )
-# Diagnostic is now called via uAgent, not directly
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -42,16 +46,28 @@ agent = Agent(
     endpoint=[f"http://127.0.0.1:{ORCHESTRATOR_AGENT_PORT}/submit"],
 )
 
-# Agent addresses (MUST be configured via environment variables)
+# ===== ALL 20 AGENT ADDRESSES =====
+# Original 10
 DIAGNOSTIC_ADDR = os.getenv("DIAGNOSTIC_AGENT_ADDRESS")
+SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
+RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
 TELEMETRY_ADDR = os.getenv("TELEMETRY_AGENT_ADDRESS")
 SAFETY_ADDR = os.getenv("SAFETY_AGENT_ADDRESS")
 MAINTENANCE_ADDR = os.getenv("MAINTENANCE_AGENT_ADDRESS")
-SERVICE_ADDR = os.getenv("SERVICE_AGENT_ADDRESS")
-RESCUE_ADDR = os.getenv("RESCUE_AGENT_ADDRESS")
 NOTIFICATION_ADDR = os.getenv("NOTIFICATION_AGENT_ADDRESS")
 EXPLANATION_ADDR = os.getenv("EXPLANATION_AGENT_ADDRESS")
 VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS")
+
+# New 10 (Phase 10)
+VEHICLE_PROFILE_ADDR = os.getenv("VEHICLE_PROFILE_AGENT_ADDRESS")
+BATTERY_HEALTH_ADDR = os.getenv("BATTERY_HEALTH_AGENT_ADDRESS")
+TYRE_HEALTH_ADDR = os.getenv("TYRE_HEALTH_AGENT_ADDRESS")
+ENGINE_HEALTH_ADDR = os.getenv("ENGINE_HEALTH_AGENT_ADDRESS")
+BREAKDOWN_CLASS_ADDR = os.getenv("BREAKDOWN_CLASSIFICATION_AGENT_ADDRESS")
+PASSENGER_SAFETY_ADDR = os.getenv("PASSENGER_SAFETY_AGENT_ADDRESS")
+NEARBY_ASSIST_ADDR = os.getenv("NEARBY_ASSISTANCE_AGENT_ADDRESS")
+SERVICE_RANKING_ADDR = os.getenv("SERVICE_RANKING_AGENT_ADDRESS")
+INCIDENT_MEMORY_ADDR = os.getenv("INCIDENT_MEMORY_AGENT_ADDRESS")
 
 
 @agent.on_query(
@@ -59,18 +75,16 @@ VERIFICATION_ADDR = os.getenv("VERIFICATION_AGENT_ADDRESS")
     replies={AutoRescueResponseMessageExtended},
 )
 async def handle_autorescue_query(ctx: Context, sender: str, msg: AutoRescueRequestMessage):
-    """Handle incoming AutoRescue orchestration request from FastAPI (synchronous query pattern)."""
-    logger.info(f"[ORCH] {msg.request_id} ← RECEIVED query from {sender[:30]}...")
+    """Handle incoming AutoRescue orchestration request from FastAPI."""
+    logger.info(f"[ORCH-20] {msg.request_id} ← RECEIVED from FastAPI")
 
     try:
-        # Create orchestrator instance and execute workflow
-        orchestrator = Orchestrator10Agent(ctx)
+        orchestrator = Orchestrator20Agent(ctx)
         response = await orchestrator.orchestrate(msg)
-
-        logger.info(f"[ORCH] {msg.request_id} → SENDING response: {response.status}")
+        logger.info(f"[ORCH-20] {msg.request_id} → SENDING response: {response.status}")
         await ctx.send(sender, response)
     except Exception as e:
-        logger.error(f"[ORCH] {msg.request_id} ✗ FAILED: {type(e).__name__}: {e}", exc_info=True)
+        logger.error(f"[ORCH-20] {msg.request_id} ✗ FAILED: {type(e).__name__}: {e}", exc_info=True)
         error_response = AutoRescueResponseMessageExtended(
             request_id=msg.request_id,
             vehicle_id=msg.vehicle_id,
@@ -96,575 +110,524 @@ async def handle_autorescue_query(ctx: Context, sender: str, msg: AutoRescueRequ
         await ctx.send(sender, error_response)
 
 
-class Orchestrator10Agent:
-    """Orchestrates the 10-agent workflow with truthful traces."""
+class Orchestrator20Agent:
+    """Full 20-agent orchestrator with conditional routing."""
 
     def __init__(self, ctx: Context):
-        """Initialize with uAgent context."""
         self.ctx = ctx
+        self.trace = []
 
-    async def orchestrate(self, request: AutoRescueRequestMessage) -> AutoRescueResponseMessageExtended:
-        """Execute the complete 10-agent workflow sequentially."""
-        request_id = request.request_id
-        vehicle_id = request.vehicle_id
-        trace = []
-
-        # Initialize result containers
-        validation = None
-        diagnosis = None
-        safety = None
-        maintenance = None
-        service_response = None
-        rescue_response = None
-        notifications = []
-        explanation = None
-        verification = None
+    async def call_agent(self, agent_name: str, address: str, request, expected_type, timeout=10):
+        """Helper to call an agent and handle response."""
+        if not address:
+            logger.warning(f"[{agent_name}] No address configured")
+            return None
 
         try:
-            # 1. TELEMETRY VALIDATION
-            logger.info(f"[PHASE9][Telemetry] STAGE START")
-            logger.info(f"[PHASE9][Telemetry] Destination: {TELEMETRY_ADDR[:40] if TELEMETRY_ADDR else 'NOT CONFIGURED'}...")
-            try:
-                logger.info(f"[PHASE9][Telemetry] BUILD REQUEST")
-                telemetry_req = TelemetryValidationRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    engine_temperature=request.engine_temperature,
-                    battery_voltage=request.battery_voltage,
-                    front_left_tyre_psi=request.front_left_tyre_psi,
-                    front_right_tyre_psi=request.front_right_tyre_psi,
-                    rear_left_tyre_psi=request.rear_left_tyre_psi,
-                    rear_right_tyre_psi=request.rear_right_tyre_psi,
-                    coolant_level=request.coolant_level,
-                    latitude=request.latitude,
-                    longitude=request.longitude,
-                )
-                logger.info(f"[PHASE9][Telemetry] REQUEST OK - sending to {TELEMETRY_ADDR[:30]}...")
-
-                logger.info(f"[PHASE9][Telemetry] SEND")
-                telemetry_resp = await self.ctx.send_and_receive(
-                    destination=TELEMETRY_ADDR,
-                    message=telemetry_req,
-                    response_type=TelemetryValidationMessage,
-                    timeout=10,
-                )
-
-                logger.info(f"[PHASE9][Telemetry] RESPONSE RECEIVED - type: {type(telemetry_resp).__name__}")
-                if isinstance(telemetry_resp, tuple):
-                    telemetry_resp, status = telemetry_resp
-                    logger.info(f"[PHASE9][Telemetry] UNPACKED: response={type(telemetry_resp).__name__}, status={type(status).__name__}")
-
-                logger.info(f"[PHASE9][Telemetry] PARSE OK - valid={getattr(telemetry_resp, 'valid', '?')}")
-                validation = telemetry_resp
-                trace.append(AgentTraceEntry(
-                    agent="Telemetry Agent",
-                    status="COMPLETED",
-                    summary=f"Validated (valid={validation.valid})"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Telemetry: valid={validation.valid}")
-
-            except Exception as e:
-                logger.exception(f"[PHASE9][Telemetry] REQUEST FAILED - {type(e).__name__}: {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Telemetry Agent",
-                    status="FALLBACK",
-                    summary=f"Validation skipped: {str(e)[:50]}"
-                ))
-
-            # 2. DIAGNOSTIC AGENT
-            logger.info(f"[PHASE9][Diagnostic] STAGE START")
-            logger.info(f"[PHASE9][Diagnostic] Destination: {DIAGNOSTIC_ADDR[:40] if DIAGNOSTIC_ADDR else 'NOT CONFIGURED'}...")
-            try:
-                from agents.messages import VehicleTelemetryMessage as VehicleTelemetryMsg
-                from agents.messages import DiagnosticResponseMessage
-
-                logger.info(f"[PHASE9][Diagnostic] BUILD REQUEST")
-                diag_req = VehicleTelemetryMsg(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    engine_temperature=request.engine_temperature,
-                    battery_voltage=request.battery_voltage,
-                    front_left_tyre_psi=request.front_left_tyre_psi,
-                    front_right_tyre_psi=request.front_right_tyre_psi,
-                    rear_left_tyre_psi=request.rear_left_tyre_psi,
-                    rear_right_tyre_psi=request.rear_right_tyre_psi,
-                    coolant_level=request.coolant_level,
-                )
-                logger.info(f"[PHASE9][Diagnostic] REQUEST OK - sending to {DIAGNOSTIC_ADDR[:30]}...")
-
-                logger.info(f"[PHASE9][Diagnostic] SEND")
-                diag_resp = await self.ctx.send_and_receive(
-                    destination=DIAGNOSTIC_ADDR,
-                    message=diag_req,
-                    response_type=DiagnosticResponseMessage,
-                    timeout=10,
-                )
-
-                logger.info(f"[PHASE9][Diagnostic] RESPONSE RECEIVED - type: {type(diag_resp).__name__}")
-                if isinstance(diag_resp, tuple):
-                    diag_resp, status = diag_resp
-                    logger.info(f"[PHASE9][Diagnostic] UNPACKED: response={type(diag_resp).__name__}, status={type(status).__name__}")
-
-                if diag_resp is None:
-                    logger.error(f"[PHASE9][Diagnostic] RESPONSE IS NONE - using fallback")
-                    diagnosis = DiagnosisSummary(
-                        issue="Diagnostic agent unreachable",
-                        affected_component="diagnostic_system",
-                        severity="WARNING",
-                        safe_to_drive=True,
-                        recommendation="Diagnostic analysis temporarily unavailable. Vehicle systems appear normal.",
-                    )
-                else:
-                    diagnosis = DiagnosisSummary(
-                        issue=diag_resp.issue,
-                        affected_component=diag_resp.affected_component,
-                        severity=diag_resp.severity,
-                        safe_to_drive=diag_resp.safe_to_drive,
-                        recommendation=diag_resp.recommendation,
-                    )
-
-                logger.info(f"[PHASE9][Diagnostic] PARSE OK - severity={diagnosis.severity}")
-                trace.append(AgentTraceEntry(
-                    agent="Diagnostic Agent",
-                    status="COMPLETED",
-                    summary=f"{diagnosis.severity}: {diagnosis.issue[:40]}"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Diagnostic: {diagnosis.severity}")
-
-            except Exception as e:
-                logger.exception(f"[PHASE9][Diagnostic] REQUEST FAILED - {type(e).__name__}: {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Diagnostic Agent",
-                    status="FAILED",
-                    summary=f"Error: {str(e)[:50]}"
-                ))
-                return self._error_response(request_id, vehicle_id, trace, "Diagnostic failed")
-
-            # 3. SAFETY DETERMINATION
-            logger.info(f"[PHASE9][Safety] STAGE START")
-            logger.info(f"[PHASE9][Safety] Destination: {SAFETY_ADDR[:40] if SAFETY_ADDR else 'NOT CONFIGURED'}...")
-            try:
-                logger.info(f"[PHASE9][Safety] BUILD REQUEST")
-                safety_req = SafetyRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    diagnosis=diagnosis,
-                )
-                logger.info(f"[PHASE9][Safety] REQUEST OK - sending to {SAFETY_ADDR[:30]}...")
-
-                logger.info(f"[PHASE9][Safety] SEND")
-                safety_resp = await self.ctx.send_and_receive(
-                    destination=SAFETY_ADDR,
-                    message=safety_req,
-                    response_type=SafetyMessage,
-                    timeout=10,
-                )
-
-                logger.info(f"[PHASE9][Safety] RESPONSE RECEIVED - type: {type(safety_resp).__name__}")
-                if isinstance(safety_resp, tuple):
-                    safety_resp, status = safety_resp
-                    logger.info(f"[PHASE9][Safety] UNPACKED: response={type(safety_resp).__name__}, status={type(status).__name__}")
-
-                logger.info(f"[PHASE9][Safety] PARSE OK - safe={getattr(safety_resp, 'safe_to_drive', '?')}")
-                safety = safety_resp
-                trace.append(AgentTraceEntry(
-                    agent="Safety Agent",
-                    status="COMPLETED",
-                    summary=f"safe={safety.safe_to_drive}, risk={safety.risk_level}"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Safety: safe_to_drive={safety.safe_to_drive}")
-
-            except Exception as e:
-                logger.exception(f"[PHASE9][Safety] REQUEST FAILED - {type(e).__name__}: {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Safety Agent",
-                    status="FALLBACK",
-                    summary=f"Using diagnostic defaults"
-                ))
-                # Fallback: derive from diagnosis
-                safety = SafetyMessage(
-                    safe_to_drive=diagnosis.safe_to_drive,
-                    navigation_allowed=diagnosis.severity != "CRITICAL",
-                    tow_required=diagnosis.severity == "CRITICAL",
-                    risk_level="HIGH" if diagnosis.severity == "CRITICAL" else (
-                        "MEDIUM" if diagnosis.severity == "WARNING" else "LOW"
-                    ),
-                )
-
-            # 4. MAINTENANCE RECOMMENDATION
-            logger.info(f"[ORCH] {request_id} → Stage 4: Maintenance Recommendation")
-            try:
-                maint_req = MaintenanceRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    diagnosis=diagnosis,
-                    safety=safety,
-                )
-
-                maint_resp = await self.ctx.send_and_receive(
-                    destination=MAINTENANCE_ADDR,
-                    message=maint_req,
-                    response_type=MaintenanceMessage,
-                    timeout=10,
-                )
-
-                if isinstance(maint_resp, tuple):
-                    maint_resp, status = maint_resp
-
-                maintenance = maint_resp
-                trace.append(AgentTraceEntry(
-                    agent="Maintenance Agent",
-                    status="COMPLETED",
-                    summary=f"{maintenance.component}: {maintenance.urgency}"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Maintenance: {maintenance.component} {maintenance.urgency}")
-
-            except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Maintenance failed (fallback): {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Maintenance Agent",
-                    status="FALLBACK",
-                    summary=f"Fallback recommendation"
-                ))
-
-            # 5. SERVICE CENTRE SEARCH (Conditional: if not NORMAL severity)
-            logger.info(f"[ORCH] {request_id} → Stage 5: Service Centre Search")
-            if diagnosis.severity != "NORMAL":
-                try:
-                    from agents.messages import ServiceRequestMessage
-                    service_req = ServiceRequestMessage(
-                        request_id=request_id,
-                        vehicle_id=vehicle_id,
-                        issue=diagnosis.issue,
-                        affected_component=diagnosis.affected_component,
-                        severity=diagnosis.severity,
-                        safe_to_drive=safety.safe_to_drive,
-                        latitude=request.latitude,
-                        longitude=request.longitude,
-                    )
-
-                    service_resp = await self.ctx.send_and_receive(
-                        destination=SERVICE_ADDR,
-                        message=service_req,
-                        response_type=ServiceResponseMessage,
-                        timeout=15,
-                    )
-
-                    if isinstance(service_resp, tuple):
-                        service_resp, status = service_resp
-
-                    service_response = service_resp
-                    trace.append(AgentTraceEntry(
-                        agent="Service Agent",
-                        status="COMPLETED",
-                        summary=f"Found {len(service_response.centres)} service centres"
-                    ))
-                    logger.info(f"[ORCH] {request_id} ✓ Service: {len(service_response.centres)} centres")
-
-                except Exception as e:
-                    logger.warning(f"[ORCH] {request_id} Service failed (fallback): {e}")
-                    trace.append(AgentTraceEntry(
-                        agent="Service Agent",
-                        status="FALLBACK",
-                        summary=f"Service search unavailable"
-                    ))
-            else:
-                trace.append(AgentTraceEntry(
-                    agent="Service Agent",
-                    status="SKIPPED",
-                    summary="NORMAL severity - no service needed"
-                ))
-                logger.info(f"[ORCH] {request_id} - Service: skipped (NORMAL)")
-
-            # 6. RESCUE ASSESSMENT (Conditional: if CRITICAL or tow required)
-            logger.info(f"[ORCH] {request_id} → Stage 6: Rescue Assessment")
-            if diagnosis.severity == "CRITICAL" or safety.tow_required:
-                try:
-                    from agents.messages import RescueRequestMessage
-                    rescue_req = RescueRequestMessage(
-                        request_id=request_id,
-                        vehicle_id=vehicle_id,
-                        issue=diagnosis.issue,
-                        affected_component=diagnosis.affected_component,
-                        severity=diagnosis.severity,
-                        safe_to_drive=safety.safe_to_drive,
-                        latitude=request.latitude,
-                        longitude=request.longitude,
-                    )
-
-                    # Add service centre info if available
-                    if service_response and service_response.centres:
-                        top_centre = service_response.centres[0]
-                        rescue_req.service_centre_name = top_centre.name
-                        rescue_req.service_centre_place_id = top_centre.place_id
-                        rescue_req.service_centre_latitude = top_centre.latitude
-                        rescue_req.service_centre_longitude = top_centre.longitude
-
-                    rescue_resp = await self.ctx.send_and_receive(
-                        destination=RESCUE_ADDR,
-                        message=rescue_req,
-                        response_type=RescueResponseMessage,
-                        timeout=15,
-                    )
-
-                    if isinstance(rescue_resp, tuple):
-                        rescue_resp, status = rescue_resp
-
-                    rescue_response = rescue_resp
-                    trace.append(AgentTraceEntry(
-                        agent="Rescue Agent",
-                        status="COMPLETED",
-                        summary=f"Assistance: {rescue_response.assistance_type}"
-                    ))
-                    logger.info(f"[ORCH] {request_id} ✓ Rescue: {rescue_response.assistance_type}")
-
-                except Exception as e:
-                    logger.warning(f"[ORCH] {request_id} Rescue failed (fallback): {e}")
-                    trace.append(AgentTraceEntry(
-                        agent="Rescue Agent",
-                        status="FALLBACK",
-                        summary=f"Rescue unavailable"
-                    ))
-            else:
-                trace.append(AgentTraceEntry(
-                    agent="Rescue Agent",
-                    status="SKIPPED",
-                    summary="Not CRITICAL - no rescue needed"
-                ))
-                logger.info(f"[ORCH] {request_id} - Rescue: skipped")
-
-            # 7. NOTIFICATIONS
-            logger.info(f"[ORCH] {request_id} → Stage 7: Notifications")
-            try:
-                notif_req = NotificationRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    diagnosis=diagnosis,
-                    safety=safety,
-                    maintenance=maintenance,
-                )
-
-                notif_resp = await self.ctx.send_and_receive(
-                    destination=NOTIFICATION_ADDR,
-                    message=notif_req,
-                    response_type=NotificationMessage,
-                    timeout=10,
-                )
-
-                if isinstance(notif_resp, tuple):
-                    notif_resp, status = notif_resp
-
-                notifications = [notif_resp] if notif_resp else []
-                trace.append(AgentTraceEntry(
-                    agent="Notification Agent",
-                    status="COMPLETED",
-                    summary=f"Generated {len(notifications)} notification(s)"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Notifications: {len(notifications)}")
-
-            except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Notification failed (fallback): {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Notification Agent",
-                    status="FALLBACK",
-                    summary=f"Notification skipped"
-                ))
-
-            # 8. EXPLANATION
-            logger.info(f"[ORCH] {request_id} → Stage 8: AI Explanation")
-            try:
-                explain_req = ExplanationRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    diagnosis=diagnosis,
-                    safety=safety,
-                    maintenance=maintenance,
-                )
-
-                explain_resp = await self.ctx.send_and_receive(
-                    destination=EXPLANATION_ADDR,
-                    message=explain_req,
-                    response_type=ExplanationMessage,
-                    timeout=15,
-                )
-
-                if isinstance(explain_resp, tuple):
-                    explain_resp, status = explain_resp
-
-                explanation = explain_resp
-                trace.append(AgentTraceEntry(
-                    agent="Explanation Agent",
-                    status="COMPLETED",
-                    summary=f"Generated explanation ({len(explanation.summary)} chars)"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Explanation generated")
-
-            except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Explanation failed (fallback): {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Explanation Agent",
-                    status="FALLBACK",
-                    summary=f"Using deterministic explanation"
-                ))
-
-            # 9. VERIFICATION
-            logger.info(f"[ORCH] {request_id} → Stage 9: Verification")
-            try:
-                verify_req = VerificationRequest(
-                    request_id=request_id,
-                    vehicle_id=vehicle_id,
-                    diagnosis=diagnosis,
-                    safety=safety,
-                    maintenance=maintenance,
-                )
-
-                verify_resp = await self.ctx.send_and_receive(
-                    destination=VERIFICATION_ADDR,
-                    message=verify_req,
-                    response_type=VerificationMessage,
-                    timeout=10,
-                )
-
-                if isinstance(verify_resp, tuple):
-                    verify_resp, status = verify_resp
-
-                verification = verify_resp
-                trace.append(AgentTraceEntry(
-                    agent="Verification Agent",
-                    status="COMPLETED",
-                    summary=f"verified={verification.verified}, issues={len(verification.issues)}"
-                ))
-                logger.info(f"[ORCH] {request_id} ✓ Verification: verified={verification.verified}")
-
-            except Exception as e:
-                logger.warning(f"[ORCH] {request_id} Verification failed (fallback): {e}")
-                trace.append(AgentTraceEntry(
-                    agent="Verification Agent",
-                    status="FALLBACK",
-                    summary=f"Verification skipped"
-                ))
-
-            # 10. BUILD FINAL RESPONSE
-            logger.info(f"[ORCH] {request_id} → Stage 10: Building Final Response")
-
-            # Determine final status
-            final_status = "HEALTHY"
-            if diagnosis.severity == "CRITICAL":
-                final_status = "CRITICAL"
-            elif diagnosis.severity == "WARNING":
-                final_status = "WARNING"
-
-            # Build rescue summary if we have a rescue response
-            rescue_summary = None
-            if rescue_response:
-                rescue_summary = RescueSummary(
-                    assistance_required=rescue_response.assistance_required,
-                    assistance_type=rescue_response.assistance_type,
-                    priority=rescue_response.priority,
-                    can_drive=rescue_response.can_drive,
-                    tow_required=rescue_response.tow_required,
-                    instructions=rescue_response.instructions,
-                    reason=rescue_response.reason,
-                    destination_name=rescue_response.destination_name,
-                    destination_place_id=rescue_response.destination_place_id,
-                    estimated_dispatch_minutes=rescue_response.estimated_dispatch_minutes,
-                )
-
-            # Build service centres list
-            service_centres = []
-            if service_response:
-                service_centres = service_response.centres
-
-            # Build final message
-            final_message = f"{diagnosis.issue}. {diagnosis.recommendation}"
-
-            response = AutoRescueResponseMessageExtended(
-                request_id=request_id,
-                vehicle_id=vehicle_id,
-                status=final_status,
-                diagnosis=diagnosis,
-                service_centres=service_centres,
-                navigation_allowed=safety.navigation_allowed,
-                rescue=rescue_summary,
-                message=final_message,
-                telemetry_validation=validation,
-                safety=safety,
-                maintenance=maintenance,
-                notifications=notifications,
-                explanation=explanation,
-                verification=verification,
-                agent_trace=trace,
+            logger.info(f"[{agent_name}] Sending request to {address[:40]}...")
+            response = await self.ctx.send_and_receive(
+                destination=address,
+                message=request,
+                response_type=expected_type,
+                timeout=timeout,
             )
 
-            trace.append(AgentTraceEntry(
-                agent="Orchestrator",
-                status="COMPLETED",
-                summary=f"Complete workflow: {final_status}"
-            ))
+            if isinstance(response, tuple):
+                response, status = response
 
-            logger.info(f"[ORCH] {request_id} ✓✓✓ Orchestration complete: {final_status}")
+            if response is None:
+                logger.warning(f"[{agent_name}] Received None response")
+                self.trace.append(AgentTraceEntry(
+                    agent=agent_name,
+                    status="FALLBACK",
+                    summary="No response received"
+                ))
+                return None
+
+            logger.info(f"[{agent_name}] Response OK")
+            self.trace.append(AgentTraceEntry(
+                agent=agent_name,
+                status="COMPLETED",
+                summary=f"Success"
+            ))
             return response
 
+        except asyncio.TimeoutError:
+            logger.error(f"[{agent_name}] Timeout")
+            self.trace.append(AgentTraceEntry(
+                agent=agent_name,
+                status="FAILED",
+                summary="Agent timeout"
+            ))
+            return None
         except Exception as e:
-            logger.error(f"[ORCH] {request_id} Orchestration failed: {e}")
-            return self._error_response(request_id, vehicle_id, trace, f"Orchestration failed: {str(e)}")
+            logger.error(f"[{agent_name}] Error: {str(e)}")
+            self.trace.append(AgentTraceEntry(
+                agent=agent_name,
+                status="FAILED",
+                summary=str(e)[:50]
+            ))
+            return None
 
-    def _error_response(self, request_id: str, vehicle_id: str | None, trace: list, error_msg: str):
-        """Generate error response."""
-        trace.append(AgentTraceEntry(
-            agent="Orchestrator",
-            status="FAILED",
-            summary=error_msg[:50]
+    def skip_agent(self, agent_name: str, reason: str = "Not applicable"):
+        """Mark agent as skipped."""
+        self.trace.append(AgentTraceEntry(
+            agent=agent_name,
+            status="SKIPPED",
+            summary=reason
         ))
 
-        # Return minimal response structure
-        return AutoRescueResponseMessageExtended(
+    async def orchestrate(self, request: AutoRescueRequestMessage) -> AutoRescueResponseMessageExtended:
+        """Execute 20-agent workflow with conditional routing."""
+        request_id = request.request_id
+        vehicle_id = request.vehicle_id
+
+        logger.info(f"[ORCH-20] {request_id} Starting 20-agent orchestration for {vehicle_id}")
+
+        # ===== PHASE 1: CONTEXT =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 1: Getting vehicle context")
+        self.trace.append(AgentTraceEntry(agent="Orchestrator", status="COMPLETED", summary="Starting 20-agent workflow"))
+
+        # Vehicle Profile
+        vehicle_profile = None
+        if VEHICLE_PROFILE_ADDR:
+            vp_req = VehicleProfileRequest(request_id=request_id, vehicle_id=vehicle_id)
+            vehicle_profile = await self.call_agent(
+                "Vehicle Profile Agent",
+                VEHICLE_PROFILE_ADDR,
+                vp_req,
+                VehicleProfileResponse,
+                timeout=5
+            )
+        else:
+            self.skip_agent("Vehicle Profile Agent", "Not configured")
+
+        powertrain = vehicle_profile.powertrain if vehicle_profile else "UNKNOWN"
+
+        # ===== PHASE 2: VALIDATION =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 2: Telemetry validation")
+
+        # Call Telemetry Agent
+        from agents.messages import VehicleTelemetryMessage
+        telemetry_msg = VehicleTelemetryMessage(
             request_id=request_id,
-            vehicle_id=vehicle_id or "UNKNOWN",
-            status="ERROR",
-            diagnosis=DiagnosisSummary(
-                issue="Diagnostic failed",
-                affected_component="UNKNOWN",
-                severity="UNKNOWN",
-                safe_to_drive=False,
-                recommendation="Please try again",
-            ),
-            service_centres=[],
-            navigation_allowed=False,
-            message=error_msg,
-            agent_trace=trace,
+            vehicle_id=vehicle_id,
+            engine_temperature=request.engine_temperature,
+            battery_voltage=request.battery_voltage,
+            front_left_tyre_psi=request.front_left_tyre_psi,
+            front_right_tyre_psi=request.front_right_tyre_psi,
+            rear_left_tyre_psi=request.rear_left_tyre_psi,
+            rear_right_tyre_psi=request.rear_right_tyre_psi,
+            coolant_level=request.coolant_level,
         )
+
+        telemetry_valid = True
+        if TELEMETRY_ADDR:
+            from agents.messages import TelemetryValidationMessage
+            telemetry_resp = await self.call_agent(
+                "Telemetry Agent",
+                TELEMETRY_ADDR,
+                telemetry_msg,
+                TelemetryValidationMessage,
+                timeout=5
+            )
+            if telemetry_resp and not telemetry_resp.valid:
+                telemetry_valid = False
+        else:
+            self.skip_agent("Telemetry Agent", "Not configured")
+
+        # ===== PHASE 3: DIAGNOSIS =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 3: Vehicle diagnosis")
+
+        diagnosis = None
+        if DIAGNOSTIC_ADDR:
+            diagnosis = await self.call_agent(
+                "Diagnostic Agent",
+                DIAGNOSTIC_ADDR,
+                telemetry_msg,
+                type('DiagnosticResponseMessage', (), {})
+            )
+        else:
+            self.skip_agent("Diagnostic Agent", "Not configured")
+
+        # ===== PHASE 4: SPECIALISTS (Conditional + Parallel) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 4: Running specialist health agents")
+
+        specialist_tasks = []
+
+        # Battery Health (if battery data exists)
+        if BATTERY_HEALTH_ADDR and request.battery_voltage:
+            battery_req = BatteryHealthRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                battery_voltage=request.battery_voltage,
+                powertrain=powertrain
+            )
+            specialist_tasks.append(
+                self.call_agent("Battery Health Agent", BATTERY_HEALTH_ADDR, battery_req, BatteryHealthResponse)
+            )
+        else:
+            self.skip_agent("Battery Health Agent", "No battery data or not configured")
+
+        # Tyre Health (if tyre data exists)
+        if TYRE_HEALTH_ADDR and request.front_left_tyre_psi:
+            tyre_req = TyreHealthRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                front_left_tyre_psi=request.front_left_tyre_psi,
+                front_right_tyre_psi=request.front_right_tyre_psi,
+                rear_left_tyre_psi=request.rear_left_tyre_psi,
+                rear_right_tyre_psi=request.rear_right_tyre_psi,
+            )
+            specialist_tasks.append(
+                self.call_agent("Tyre Health Agent", TYRE_HEALTH_ADDR, tyre_req, TyreHealthResponse)
+            )
+        else:
+            self.skip_agent("Tyre Health Agent", "No tyre data or not configured")
+
+        # Engine Health (if engine data exists)
+        if ENGINE_HEALTH_ADDR and request.engine_temperature:
+            engine_req = EngineHealthRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                engine_temperature=request.engine_temperature,
+                coolant_level=request.coolant_level,
+            )
+            specialist_tasks.append(
+                self.call_agent("Engine Health Agent", ENGINE_HEALTH_ADDR, engine_req, EngineHealthResponse)
+            )
+        else:
+            self.skip_agent("Engine Health Agent", "No engine data or not configured")
+
+        # Run specialists concurrently if any
+        specialist_results = []
+        if specialist_tasks:
+            specialist_results = await asyncio.gather(*specialist_tasks, return_exceptions=True)
+
+        # ===== PHASE 5: BREAKDOWN CLASSIFICATION =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 5: Breakdown classification")
+
+        breakdown = None
+        if BREAKDOWN_CLASS_ADDR:
+            breakdown_req = BreakdownClassificationRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                diagnosis=diagnosis.issue if diagnosis else None,
+            )
+            breakdown = await self.call_agent(
+                "Breakdown Classification Agent",
+                BREAKDOWN_CLASS_ADDR,
+                breakdown_req,
+                BreakdownClassificationResponse
+            )
+        else:
+            self.skip_agent("Breakdown Classification Agent", "Not configured")
+
+        # ===== PHASE 6: PASSENGER SAFETY (Accident handling) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 6: Passenger safety check")
+
+        passenger_safety = None
+        if PASSENGER_SAFETY_ADDR and breakdown and "ACCIDENT" in breakdown.category:
+            safety_req = PassengerSafetyRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                accident_flag=True,
+                passenger_injury=False,  # Default
+            )
+            passenger_safety = await self.call_agent(
+                "Passenger Safety Agent",
+                PASSENGER_SAFETY_ADDR,
+                safety_req,
+                PassengerSafetyResponse
+            )
+        else:
+            self.skip_agent("Passenger Safety Agent", "No accident scenario")
+
+        # ===== PHASE 7: SAFETY AGENT =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 7: Safety assessment")
+
+        from agents.messages import SafetyRequest, SafetyMessage
+        safety_req = SafetyRequest(
+            request_id=request_id,
+            vehicle_id=vehicle_id,
+            diagnosis=diagnosis.issue if diagnosis else "Unknown",
+        )
+
+        safety_resp = None
+        if SAFETY_ADDR:
+            safety_resp = await self.call_agent(
+                "Safety Agent",
+                SAFETY_ADDR,
+                safety_req,
+                SafetyMessage
+            )
+        else:
+            self.skip_agent("Safety Agent", "Not configured")
+
+        # ===== PHASE 8: MAINTENANCE =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 8: Maintenance planning")
+
+        maintenance = None
+        if MAINTENANCE_ADDR and diagnosis:
+            from agents.messages import MaintenanceRequest, MaintenanceMessage
+            maint_req = MaintenanceRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                issue=diagnosis.issue if diagnosis else "Unknown",
+            )
+            maintenance = await self.call_agent(
+                "Maintenance Agent",
+                MAINTENANCE_ADDR,
+                maint_req,
+                MaintenanceMessage
+            )
+        else:
+            self.skip_agent("Maintenance Agent", "Not applicable")
+
+        # ===== PHASE 9: RESCUE (Conditional) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 9: Rescue decision")
+
+        rescue_needed = (
+            (diagnosis and diagnosis.severity in ["CRITICAL", "WARNING"]) or
+            (safety_resp and safety_resp.tow_required)
+        )
+
+        rescue_response = None
+        if RESCUE_ADDR and rescue_needed:
+            from agents.messages import RescueRequestMessage
+            rescue_req = RescueRequestMessage(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                issue=diagnosis.issue if diagnosis else "Unknown",
+                affected_component=diagnosis.affected_component if diagnosis else "vehicle",
+                severity=diagnosis.severity if diagnosis else "UNKNOWN",
+                safe_to_drive=diagnosis.safe_to_drive if diagnosis else False,
+                latitude=request.latitude,
+                longitude=request.longitude,
+            )
+            from agents.messages import RescueResponseMessage
+            rescue_response = await self.call_agent(
+                "Rescue Agent",
+                RESCUE_ADDR,
+                rescue_req,
+                RescueResponseMessage
+            )
+        else:
+            self.skip_agent("Rescue Agent", "No rescue needed")
+
+        # ===== PHASE 10: NEARBY ASSISTANCE (If rescue) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 10: Nearby assistance")
+
+        nearby_results = []
+        if NEARBY_ASSIST_ADDR and rescue_response and rescue_response.assistance_required:
+            assist_category = "VEHICLE_REPAIR"  # Default
+            if breakdown:
+                assist_category = breakdown.category
+
+            nearby_req = NearbyAssistanceRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                category=assist_category,
+                latitude=request.latitude,
+                longitude=request.longitude,
+                max_results=5,
+            )
+            nearby = await self.call_agent(
+                "Nearby Assistance Agent",
+                NEARBY_ASSIST_ADDR,
+                nearby_req,
+                NearbyAssistanceResponse
+            )
+            if nearby:
+                nearby_results = nearby.places
+        else:
+            self.skip_agent("Nearby Assistance Agent", "No rescue assistance needed")
+
+        # ===== PHASE 11: SERVICE RANKING (If nearby results) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 11: Service ranking")
+
+        ranked_places = nearby_results
+        if SERVICE_RANKING_ADDR and nearby_results:
+            ranking_req = ServiceRankingRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                places=nearby_results,
+                assistance_category=breakdown.category if breakdown else "VEHICLE_REPAIR",
+            )
+            ranked = await self.call_agent(
+                "Service Ranking Agent",
+                SERVICE_RANKING_ADDR,
+                ranking_req,
+                ServiceRankingResponse
+            )
+            if ranked:
+                ranked_places = ranked.ranked_places
+        else:
+            self.skip_agent("Service Ranking Agent", "No places to rank")
+
+        # ===== PHASE 12: NOTIFICATIONS =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 12: Notifications")
+
+        if NOTIFICATION_ADDR and (diagnosis and diagnosis.severity in ["CRITICAL", "WARNING"]):
+            from agents.messages import NotificationRequest, NotificationMessage
+            notif_req = NotificationRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                issue=diagnosis.issue if diagnosis else "Unknown",
+                severity=diagnosis.severity if diagnosis else "UNKNOWN",
+            )
+            await self.call_agent(
+                "Notification Agent",
+                NOTIFICATION_ADDR,
+                notif_req,
+                type('NotificationMessage', (), {})
+            )
+        else:
+            self.skip_agent("Notification Agent", "No critical issues")
+
+        # ===== PHASE 13: EXPLANATION =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 13: Explanation")
+
+        explanation = None
+        if EXPLANATION_ADDR:
+            from agents.messages import ExplanationRequest, ExplanationMessage
+            exp_req = ExplanationRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                issue=diagnosis.issue if diagnosis else "Vehicle OK",
+            )
+            explanation = await self.call_agent(
+                "Explanation Agent",
+                EXPLANATION_ADDR,
+                exp_req,
+                ExplanationMessage
+            )
+        else:
+            self.skip_agent("Explanation Agent", "Not configured")
+
+        # ===== PHASE 14: INCIDENT MEMORY (Store meaningful incidents) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 14: Incident memory")
+
+        if INCIDENT_MEMORY_ADDR and diagnosis and diagnosis.severity in ["CRITICAL", "WARNING"]:
+            incident_req = IncidentMemoryRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                operation="STORE_INCIDENT",
+                incident_data={
+                    "issue": diagnosis.issue,
+                    "severity": diagnosis.severity,
+                    "affected_component": diagnosis.affected_component,
+                    "safe_to_drive": diagnosis.safe_to_drive,
+                }
+            )
+            await self.call_agent(
+                "Incident Memory Agent",
+                INCIDENT_MEMORY_ADDR,
+                incident_req,
+                IncidentMemoryResponse
+            )
+        else:
+            self.skip_agent("Incident Memory Agent", "No significant incident")
+
+        # ===== PHASE 15: VERIFICATION (Final) =====
+        logger.info(f"[ORCH-20] {request_id} PHASE 15: Final verification")
+
+        if VERIFICATION_ADDR:
+            from agents.messages import VerificationRequest, VerificationMessage
+            verif_req = VerificationRequest(
+                request_id=request_id,
+                vehicle_id=vehicle_id,
+                diagnosis=diagnosis.issue if diagnosis else "NORMAL",
+            )
+            verification = await self.call_agent(
+                "Verification Agent",
+                VERIFICATION_ADDR,
+                verif_req,
+                VerificationMessage
+            )
+        else:
+            self.skip_agent("Verification Agent", "Not configured")
+
+        # Skip remaining agents not explicitly called
+        self.skip_agent("Service Agent", "Integrated into Rescue workflow")
+        self.skip_agent("Agent Health Monitor", "On-demand only")
+
+        # ===== BUILD FINAL RESPONSE =====
+        logger.info(f"[ORCH-20] {request_id} Building final response")
+
+        status = "HEALTHY"
+        if diagnosis:
+            if diagnosis.severity == "CRITICAL":
+                status = "ASSISTANCE_REQUIRED"
+            elif diagnosis.severity == "WARNING":
+                status = "SERVICE_RECOMMENDED"
+
+        navigation_allowed = (
+            (safety_resp.navigation_allowed if safety_resp else True) and
+            (not rescue_response or not rescue_response.assistance_required)
+        )
+
+        rescue_summary = None
+        if rescue_response and rescue_response.assistance_required:
+            rescue_summary = RescueSummary(
+                assistance_required=True,
+                assistance_type=rescue_response.assistance_type,
+                priority=rescue_response.priority,
+                can_drive=rescue_response.can_drive,
+                tow_required=rescue_response.tow_required,
+                instructions=rescue_response.instructions,
+                reason=rescue_response.reason,
+            )
+            navigation_allowed = False
+
+        from models.autorescue_api import ServiceCentreApiResponse
+        service_centres = [
+            ServiceCentreApiResponse(
+                place_id=p.get("place_id", ""),
+                name=p.get("name", ""),
+                address=p.get("address", ""),
+                latitude=p.get("latitude", 0),
+                longitude=p.get("longitude", 0),
+                rating=p.get("rating"),
+                review_count=p.get("review_count"),
+                is_open=p.get("is_open"),
+                distance_km=p.get("distance_km", 0),
+                priority_score=p.get("priority_score", 0),
+                recommendation_reason=p.get("recommendation_reason", ""),
+            )
+            for p in ranked_places
+        ] if ranked_places else []
+
+        final_response = AutoRescueResponseMessageExtended(
+            request_id=request_id,
+            vehicle_id=vehicle_id,
+            status=status,
+            diagnosis=DiagnosisSummary(
+                issue=diagnosis.issue if diagnosis else "No issues detected",
+                affected_component=diagnosis.affected_component if diagnosis else "vehicle",
+                severity=diagnosis.severity if diagnosis else "NORMAL",
+                safe_to_drive=diagnosis.safe_to_drive if diagnosis else True,
+                recommendation=diagnosis.recommendation if diagnosis else "Continue normal driving",
+            ),
+            service_centres=service_centres,
+            navigation_allowed=navigation_allowed,
+            rescue=rescue_summary,
+            message=rescue_response.instructions if rescue_response else "Vehicle operating normally",
+            agent_trace=self.trace,
+        )
+
+        logger.info(f"[ORCH-20] {request_id} ✓ Complete: {status}")
+        return final_response
 
 
 @agent.on_event("startup")
 async def startup(ctx: Context):
-    """Log startup and validate configuration."""
+    """Log startup information."""
     logger.info("=" * 60)
-    logger.info("Orchestrator Phase 9 Agent started")
+    logger.info("Phase 10B: 20-Agent Orchestrator started")
     logger.info(f"Agent Name: {ctx.agent.name}")
     logger.info(f"Agent Address: {ctx.agent.address}")
-    logger.info("=" * 60)
-
-    # Validate all required agent addresses are configured
-    required_addrs = {
-        "TELEMETRY": TELEMETRY_ADDR,
-        "SAFETY": SAFETY_ADDR,
-        "MAINTENANCE": MAINTENANCE_ADDR,
-        "SERVICE": SERVICE_ADDR,
-        "RESCUE": RESCUE_ADDR,
-        "NOTIFICATION": NOTIFICATION_ADDR,
-        "EXPLANATION": EXPLANATION_ADDR,
-        "VERIFICATION": VERIFICATION_ADDR,
-    }
-
-    missing = [name for name, addr in required_addrs.items() if not addr]
-    if missing:
-        logger.error(f"⚠ Missing agent addresses: {', '.join(missing)}")
-        logger.error("Configure via environment variables (see .env file)")
-    else:
-        logger.info("✓ All 8 agent addresses configured:")
-        for name, addr in required_addrs.items():
-            logger.info(f"  {name:15} {addr[:40]}...")
+    logger.info(f"Port: {ORCHESTRATOR_AGENT_PORT}")
     logger.info("=" * 60)
 
 
