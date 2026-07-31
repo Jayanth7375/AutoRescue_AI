@@ -827,10 +827,15 @@ fun DiagnoseScreen(
                     }
                 }
 
-                // Agent Activity Card
+                // Agent Activity Card (20-Agent Workflow)
                 if (response.agentTrace.isNotEmpty()) {
                     item {
                         var agentActivityExpanded by remember { mutableStateOf(false) }
+
+                        val completedCount = response.agentTrace.count { it.status == "COMPLETED" }
+                        val fallbackCount = response.agentTrace.count { it.status == "FALLBACK" }
+                        val skippedCount = response.agentTrace.count { it.status == "SKIPPED" }
+                        val failedCount = response.agentTrace.count { it.status == "FAILED" }
 
                         Card(
                             shape = RoundedCornerShape(16.dp),
@@ -849,15 +854,15 @@ fun DiagnoseScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "10-Agent Decision Pipeline",
+                                            text = "20-Agent Workflow",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "${response.agentTrace.size} agents executed",
+                                            text = "${response.agentTrace.size} agents in decision pipeline",
                                             fontSize = 12.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -872,6 +877,80 @@ fun DiagnoseScreen(
                                     )
                                 }
 
+                                // Summary counts
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = completedCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = HealthyGreen
+                                        )
+                                        Text(
+                                            text = "Completed",
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = fallbackCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = WarningAmber
+                                        )
+                                        Text(
+                                            text = "Fallback",
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = skippedCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                        Text(
+                                            text = "Skipped",
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = failedCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = CriticalRed
+                                        )
+                                        Text(
+                                            text = "Failed",
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
                                 AnimatedVisibility(visible = agentActivityExpanded) {
                                     Column(
                                         modifier = Modifier
@@ -884,7 +963,11 @@ fun DiagnoseScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(vertical = 4.dp),
+                                                    .background(
+                                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(10.dp),
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
@@ -917,8 +1000,8 @@ fun DiagnoseScreen(
                                                 }
 
                                                 Surface(
-                                                    color = statusColor.copy(alpha = 0.1f),
-                                                    shape = RoundedCornerShape(4.dp)
+                                                    color = statusColor.copy(alpha = 0.15f),
+                                                    shape = RoundedCornerShape(6.dp)
                                                 ) {
                                                     Text(
                                                         text = entry.status,
